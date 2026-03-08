@@ -55,12 +55,10 @@ export async function POST(
       }),
       prisma.inventoryLog.create({
         data: {
-          inventoryItemId: id,
+          itemId: id,
           userId,
           delta,
           note: note ?? "",
-          qtyBefore: item.qty,
-          qtyAfter: newQty,
         },
       }),
     ]);

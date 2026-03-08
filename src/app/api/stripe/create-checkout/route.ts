@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const session = await createCheckoutSession({
       email,
-      planId,
+      planId: planId as "standard",
       promoCode,
       successUrl: `${baseUrl}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/signup`,

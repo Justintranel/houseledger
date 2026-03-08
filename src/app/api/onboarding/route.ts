@@ -13,7 +13,7 @@ const schema = z.object({
   address: z.string().optional(),
   familyEmails: z.array(z.string().email()).optional().default([]),
   managerEmail: z.string().email().optional(),
-  workDays: z.array(z.string()).optional().default([]),
+  workDays: z.array(z.number()).optional().default([]),
   workStart: z.string().optional(),
   workEnd: z.string().optional(),
   includeStarterTasks: z.boolean().optional().default(false),
@@ -126,9 +126,7 @@ export async function POST(req: NextRequest) {
           data: {
             title: task.title,
             category: task.category,
-            recurrence: "DAILY",
             householdId,
-            createdByUserId: userId,
           },
         });
       }

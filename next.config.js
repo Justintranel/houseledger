@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["@prisma/client", "bcryptjs"],
-  // Allow socket.io client assets
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
+  },
   webpack: (config) => {
     config.externals.push({ bufferutil: "bufferutil", "utf-8-validate": "utf-8-validate" });
     return config;

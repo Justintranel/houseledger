@@ -58,7 +58,7 @@ export async function POST(
         status: "DENIED",
         denialReason: reason,
         approverId: userId,
-        approvedAt: new Date(),
+        
       },
       include: {
         requester: { select: { id: true, name: true } },
@@ -69,10 +69,10 @@ export async function POST(
     await audit({
       householdId: hid,
       userId,
-      action: "PURCHASE_DENIED",
+      action: "DENY",
       entityType: "PurchaseRequest",
       entityId: id,
-      details: `Denied purchase request for ${request.vendor} — $${request.amount}. Reason: ${reason}`,
+      note: `Denied purchase request for ${request.vendor} — $${request.amount}. Reason: ${reason}`,
     });
 
     return NextResponse.json(updated);

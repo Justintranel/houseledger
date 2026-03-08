@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const patchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   address: z.string().max(500).optional(),
-  workDays: z.array(z.string()).optional(),
+  workDays: z.array(z.number()).optional(),
   workStart: z.string().optional(),
   workEnd: z.string().optional(),
   hourlyRate: z.number().min(0).optional(),

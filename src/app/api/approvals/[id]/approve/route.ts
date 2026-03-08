@@ -40,7 +40,7 @@ export async function POST(
       data: {
         status: "APPROVED",
         approverId: userId,
-        approvedAt: new Date(),
+        
       },
       include: {
         requester: { select: { id: true, name: true } },
@@ -51,10 +51,10 @@ export async function POST(
     await audit({
       householdId: hid,
       userId,
-      action: "PURCHASE_APPROVED",
+      action: "APPROVE",
       entityType: "PurchaseRequest",
       entityId: id,
-      details: `Approved purchase request for ${request.vendor} — $${request.amount}`,
+      note: `Approved purchase request for ${request.vendor} — $${request.amount}`,
     });
 
     return NextResponse.json(updated);

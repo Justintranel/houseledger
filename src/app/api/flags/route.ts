@@ -71,7 +71,6 @@ export async function PATCH(req: NextRequest) {
       },
       update: {
         enabled,
-        updatedAt: new Date(),
       },
     });
 

@@ -176,10 +176,10 @@ export async function DELETE(req: NextRequest) {
     await audit({
       householdId: hid,
       userId,
-      action: "VENDOR_DELETED",
+      action: "DELETE",
       entityType: "Vendor",
       entityId: id,
-      details: `Deleted vendor: ${vendor.name}`,
+      note: `Deleted vendor: ${vendor.name}`,
     });
 
     return NextResponse.json({ ok: true });
