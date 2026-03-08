@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,19 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+    }
+
+    // Send welcome email to the owner
+    try {
+      const owner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true },
+      });
+      if (owner) {
+        await sendWelcomeEmail(owner.email, owner.name, householdName);
+      }
+    } catch (emailErr) {
+      console.error("[onboarding] welcome email failed:", emailErr);
     }
 
     return NextResponse.json({ ok: true });

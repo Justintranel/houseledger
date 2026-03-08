@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
 import { audit } from "@/lib/audit";
+import { sendInviteEmail } from "@/lib/email";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
@@ -84,10 +85,12 @@ export async function POST(req: NextRequest) {
 
     // Check if user already exists
     let user = await prisma.user.findUnique({ where: { email } });
+    let tmpPassword: string | null = null;
+    const isNewUser = !user;
 
     if (!user) {
       // Create user with a temporary password — they should reset it
-      const tmpPassword = Math.random().toString(36).slice(-10) + "Aa1!";
+      tmpPassword = Math.random().toString(36).slice(-10) + "Aa1!";
       const hash = await bcrypt.hash(tmpPassword, 12);
       user = await prisma.user.create({
         data: { name, email, passwordHash: hash },
@@ -135,6 +138,29 @@ export async function POST(req: NextRequest) {
       after: { email, role, hourlyRateCents },
       note: `Invited ${email} as ${role}`,
     });
+
+    // Send invite email if this is a brand-new user
+    if (isNewUser && tmpPassword) {
+      try {
+        const household = await prisma.household.findUnique({
+          where: { id: auth.householdId },
+          select: { name: true },
+        });
+        const inviter = await prisma.user.findUnique({
+          where: { id: auth.userId },
+          select: { name: true },
+        });
+        await sendInviteEmail(
+          email,
+          inviter?.name ?? "Your household owner",
+          household?.name ?? "your household",
+          role,
+          tmpPassword
+        );
+      } catch (emailErr) {
+        console.error("[workers] invite email failed:", emailErr);
+      }
+    }
 
     return NextResponse.json({ ok: true, memberId: member.id }, { status: 201 });
   } catch (err) {

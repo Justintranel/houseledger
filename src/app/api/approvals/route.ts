@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { sendPurchaseRequestEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,6 +96,33 @@ export async function POST(req: NextRequest) {
         receipts: true,
       },
     });
+
+    // Notify owner(s) of new pending request
+    if (request.status === "PENDING") {
+      try {
+        const owners = await prisma.householdMember.findMany({
+          where: { householdId: hid, role: "OWNER" },
+          include: { user: { select: { name: true, email: true } } },
+        });
+        const requester = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        });
+        for (const o of owners) {
+          await sendPurchaseRequestEmail(
+            o.user.email,
+            o.user.name,
+            requester?.name ?? "Your manager",
+            vendor,
+            amount,
+            reason,
+            request.id
+          );
+        }
+      } catch (emailErr) {
+        console.error("[approvals] notify owner email failed:", emailErr);
+      }
+    }
 
     return NextResponse.json(request, { status: 201 });
   } catch (err) {

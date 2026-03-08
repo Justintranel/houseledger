@@ -132,6 +132,7 @@ model User {
   supportTickets        SupportTicket[]           @relation("TicketSubmitter")
   ticketComments        TicketComment[]
   adminAuditLogs        AdminAuditLog[]
+  passwordResetTokens   PasswordResetToken[]
 }
 
 // ─── Household (Tenant) ───────────────────────────────────────────────────────
@@ -916,4 +917,19 @@ model AdminAuditLog {
 
   @@index([adminId])
   @@index([createdAt])
+}
+
+// ─── Password Reset ────────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }

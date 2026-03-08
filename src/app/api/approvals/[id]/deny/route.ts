@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
+import { sendPurchaseDeniedEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,25 @@ export async function POST(
       entityId: id,
       note: `Denied purchase request for ${request.vendor} — $${request.amount}. Reason: ${reason}`,
     });
+
+    // Notify the requester
+    try {
+      const requester = await prisma.user.findUnique({
+        where: { id: request.requesterId },
+        select: { name: true, email: true },
+      });
+      if (requester) {
+        await sendPurchaseDeniedEmail(
+          requester.email,
+          requester.name,
+          request.vendor,
+          request.amount,
+          reason
+        );
+      }
+    } catch (emailErr) {
+      console.error("[deny] email failed:", emailErr);
+    }
 
     return NextResponse.json(updated);
   } catch (err) {

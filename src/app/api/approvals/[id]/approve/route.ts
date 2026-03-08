@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { sendPurchaseApprovedEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,24 @@ export async function POST(
       entityId: id,
       note: `Approved purchase request for ${request.vendor} — $${request.amount}`,
     });
+
+    // Notify the requester
+    try {
+      const requester = await prisma.user.findUnique({
+        where: { id: request.requesterId },
+        select: { name: true, email: true },
+      });
+      if (requester) {
+        await sendPurchaseApprovedEmail(
+          requester.email,
+          requester.name,
+          request.vendor,
+          request.amount
+        );
+      }
+    } catch (emailErr) {
+      console.error("[approve] email failed:", emailErr);
+    }
 
     return NextResponse.json(updated);
   } catch (err) {
