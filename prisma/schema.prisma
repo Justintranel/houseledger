@@ -1,0 +1,919 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  FAMILY
+  MANAGER
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  SEASONAL
+  CUSTOM
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+enum QuestionStatus {
+  OPEN
+  ANSWERED
+}
+
+enum NoteVisibility {
+  SHARED
+  PRIVATE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum TimeEntryStatus {
+  RUNNING
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOID
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  DENY
+  SIGN
+  UPLOAD
+  ROLE_CHANGE
+  LOGIN
+}
+
+enum AccountStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  UNPAID
+  CANCELED
+  SUSPENDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  isSuperAdmin Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships           HouseholdMember[]
+  sentMessages          Message[]
+  dmsSent               DirectMessage[]           @relation("DMSender")
+  taskCompletions       TaskInstance[]            @relation("TaskCompleter")
+  taskComments          TaskComment[]
+  notes                 Note[]
+  questionsAsked        Question[]                @relation("QuestionAsker")
+  questionsAnswered     Question[]                @relation("QuestionAnswerer")
+  inventoryLogs         InventoryLog[]
+  purchaseRequests      PurchaseRequest[]         @relation("Requester")
+  purchaseApprovals     PurchaseRequest[]         @relation("Approver")
+  timeEntriesWorked     TimeEntry[]               @relation("TimeEntryWorker")
+  timeApprovals         TimeEntry[]               @relation("TimeEntryApprover")
+  workerRates           WorkerRate[]
+  auditLogs             AuditLog[]
+  profileAnswers        HouseProfileAnswer[]
+  contractActions       ContractAction[]
+  contractsSigned       ContractDocument[]        @relation("ContractSigner")
+  familyEvents          FamilyEvent[]
+  reviewsGiven          PerformanceReview[]       @relation("ReviewsGiven")
+  reviewsReceived       PerformanceReview[]       @relation("ReviewsReceived")
+  trainingProgress      TrainingVideoProgress[]   @relation("VideoProgress")
+  trainingAnswers       TrainingVideoAnswer[]     @relation("VideoAnswers")
+  supportTickets        SupportTicket[]           @relation("TicketSubmitter")
+  ticketComments        TicketComment[]
+  adminAuditLogs        AdminAuditLog[]
+}
+
+// ─── Household (Tenant) ───────────────────────────────────────────────────────
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Work schedule
+  workDays  Int[]   // 0=Sun … 6=Sat
+  workStart String? // "09:00"
+  workEnd   String? // "17:00"
+
+  // Approval rules
+  autoApproveUnder    Float?
+  requireApprovalOver Float?
+
+  // Hourly rate for time tracking pay calculations
+  hourlyRate Float?
+
+  // Stripe billing
+  stripeCustomerId         String?       @unique
+  stripeSubscriptionId     String?       @unique
+  subscriptionStatus       String?       // active | past_due | canceled | trialing (raw Stripe value)
+  subscriptionPlan         String?       // standard | premium
+  stripeCurrentPeriodEnd   DateTime?
+  stripeLatestInvoiceId    String?
+
+  // Account lifecycle (admin-controlled)
+  accountStatus      AccountStatus @default(TRIALING)
+  trialEndsAt        DateTime?
+  pastDueAt          DateTime?
+  suspendedAt        DateTime?
+  suspendedReason    String?       @db.Text
+  canceledAt         DateTime?
+  billingEmail       String?
+  adminNote          String?       @db.Text
+
+  onboardingCompleted Boolean @default(false)
+
+  members              HouseholdMember[]
+  taskTemplates        TaskTemplate[]
+  taskInstances        TaskInstance[]
+  channels             Channel[]
+  dmThreads            DirectMessageThread[]
+  notes                Note[]
+  questions            Question[]
+  inventoryItems       InventoryItem[]
+  purchaseRequests     PurchaseRequest[]
+  profileAnswers       HouseProfileAnswer[]
+  profileQuestions     HouseProfileQuestion[]
+  vendors              Vendor[]
+  timeEntries          TimeEntry[]
+  workerRates          WorkerRate[]
+  contracts            ContractDocument[]
+  contractTemplates    ContractTemplate[]
+  auditLogs            AuditLog[]
+  featureFlags         FeatureFlag[]
+  houseSops            HouseSOP[]
+  recipes              Recipe[]
+  mealPlans            MealPlan[]
+  travelPlans          TravelPlan[]
+  familyEvents         FamilyEvent[]
+  googleCalendar       GoogleCalendarLink?
+  performanceReviews   PerformanceReview[]
+  trainingVideos       TrainingVideo[]
+  trainingProgress     TrainingVideoProgress[]
+  supportTickets       SupportTicket[]
+}
+
+model HouseholdMember {
+  id            String   @id @default(cuid())
+  householdId   String
+  userId        String
+  role          Role
+  joinedAt      DateTime @default(now())
+  invitedByUserId String?
+
+  household  Household             @relation(fields: [householdId], references: [id])
+  user       User                  @relation(fields: [userId], references: [id])
+  dmMemberships DirectMessageMember[]
+
+  @@unique([householdId, userId])
+}
+
+// ─── Feature Flags ────────────────────────────────────────────────────────────
+
+model FeatureFlag {
+  id          String  @id @default(cuid())
+  householdId String
+  key         String  // "chat" | "inventory" | "contracts" | "timetracking" | ...
+  enabled     Boolean @default(true)
+
+  household Household @relation(fields: [householdId], references: [id])
+
+  @@unique([householdId, key])
+}
+
+// ─── Tasks + Recurrence ───────────────────────────────────────────────────────
+
+model TaskTemplate {
+  id              String    @id @default(cuid())
+  householdId     String
+  title           String
+  description     String?
+  category        String?
+  defaultDuration Int?      // minutes
+  active          Boolean   @default(true)
+  isOneOff        Boolean   @default(false)
+  oneOffDate      DateTime? @db.Date
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  household      Household       @relation(fields: [householdId], references: [id])
+  recurrenceRule RecurrenceRule?
+  instances      TaskInstance[]
+  exceptions     TaskException[]
+}
+
+model RecurrenceRule {
+  id             String         @id @default(cuid())
+  taskTemplateId String         @unique
+  type           RecurrenceType
+  interval       Int            @default(1)
+  weekdays       Int[]          // 0–6 for WEEKLY
+  monthday       Int?           // 1–31 for MONTHLY
+  months         Int[]          // 1–12 for SEASONAL
+  startDate      DateTime       @db.Date
+  endDate        DateTime?      @db.Date
+
+  taskTemplate TaskTemplate @relation(fields: [taskTemplateId], references: [id])
+}
+
+model TaskException {
+  id                  String    @id @default(cuid())
+  taskTemplateId      String
+  date                DateTime  @db.Date
+  skip                Boolean   @default(false)
+  overrideTitle       String?
+  overrideDescription String?
+
+  taskTemplate TaskTemplate @relation(fields: [taskTemplateId], references: [id])
+
+  @@unique([taskTemplateId, date])
+}
+
+model TaskInstance {
+  id                String     @id @default(cuid())
+  householdId       String
+  taskTemplateId    String?
+  date              DateTime   @db.Date
+  title             String
+  description       String?
+  category          String?
+  status            TaskStatus @default(TODO)
+  completedAt       DateTime?
+  completedByUserId String?
+
+  household    Household     @relation(fields: [householdId], references: [id])
+  taskTemplate TaskTemplate? @relation(fields: [taskTemplateId], references: [id])
+  completedBy  User?         @relation("TaskCompleter", fields: [completedByUserId], references: [id])
+  comments     TaskComment[]
+
+  @@index([householdId, date])
+}
+
+model TaskComment {
+  id             String   @id @default(cuid())
+  taskInstanceId String
+  userId         String
+  body           String
+  createdAt      DateTime @default(now())
+
+  taskInstance TaskInstance @relation(fields: [taskInstanceId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+}
+
+// ─── Chat: Channels + DMs ─────────────────────────────────────────────────────
+
+model Channel {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  household Household       @relation(fields: [householdId], references: [id])
+  messages  Message[]
+  members   ChannelMember[]
+
+  @@unique([householdId, name])
+}
+
+model ChannelMember {
+  id        String @id @default(cuid())
+  channelId String
+  userId    String
+
+  channel Channel @relation(fields: [channelId], references: [id])
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  channelId String
+  senderId  String
+  body      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  sender  User    @relation(fields: [senderId], references: [id])
+}
+
+model DirectMessageThread {
+  id          String   @id @default(cuid())
+  householdId String
+  createdAt   DateTime @default(now())
+
+  household Household             @relation(fields: [householdId], references: [id])
+  members   DirectMessageMember[]
+  messages  DirectMessage[]
+}
+
+model DirectMessageMember {
+  id       String @id @default(cuid())
+  threadId String
+  memberId String // HouseholdMember id
+
+  thread DirectMessageThread @relation(fields: [threadId], references: [id])
+  member HouseholdMember     @relation(fields: [memberId], references: [id])
+
+  @@unique([threadId, memberId])
+}
+
+model DirectMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  thread DirectMessageThread @relation(fields: [threadId], references: [id])
+  sender User                @relation("DMSender", fields: [senderId], references: [id])
+}
+
+// ─── Notes + Questions ────────────────────────────────────────────────────────
+
+model Note {
+  id          String         @id @default(cuid())
+  householdId String
+  authorId    String
+  date        DateTime       @db.Date
+  body        String
+  visibility  NoteVisibility @default(SHARED)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id])
+}
+
+model Question {
+  id           String         @id @default(cuid())
+  householdId  String
+  askerId      String
+  answeredById String?
+  question     String
+  answer       String?
+  status       QuestionStatus @default(OPEN)
+  createdAt    DateTime       @default(now())
+  answeredAt   DateTime?
+
+  household  Household @relation(fields: [householdId], references: [id])
+  asker      User      @relation("QuestionAsker", fields: [askerId], references: [id])
+  answeredBy User?     @relation("QuestionAnswerer", fields: [answeredById], references: [id])
+}
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  category    String?  // e.g. "Cleaning", "Kitchen", "Bathroom"
+  qty         Float    @default(0)
+  unit        String?
+  threshold   Float?
+  productUrl  String?  // link to purchase the item (set by OWNER, used by MANAGER)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id])
+  logs      InventoryLog[]
+}
+
+model InventoryLog {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  delta     Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  item InventoryItem @relation(fields: [itemId], references: [id])
+  user User          @relation(fields: [userId], references: [id])
+}
+
+// ─── Purchase Approvals + Receipts ────────────────────────────────────────────
+
+model PurchaseRequest {
+  id           String         @id @default(cuid())
+  householdId  String
+  requesterId  String
+  approverId   String?
+  vendorId     String?
+  amount       Float
+  vendor       String
+  category     String?
+  reason       String
+  neededBy     DateTime?
+  status       ApprovalStatus @default(PENDING)
+  denialReason String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  household    Household @relation(fields: [householdId], references: [id])
+  requester    User      @relation("Requester", fields: [requesterId], references: [id])
+  approver     User?     @relation("Approver", fields: [approverId], references: [id])
+  vendorRecord Vendor?   @relation(fields: [vendorId], references: [id])
+  receipts     Receipt[]
+}
+
+model Receipt {
+  id         String   @id @default(cuid())
+  requestId  String
+  fileUrl    String
+  fileName   String
+  fileSize   Int
+  uploadedAt DateTime @default(now())
+  notes      String?
+
+  request PurchaseRequest @relation(fields: [requestId], references: [id])
+}
+
+// ─── House Profile ────────────────────────────────────────────────────────────
+
+model HouseProfileQuestion {
+  id          String  @id @default(cuid())
+  category    String
+  prompt      String
+  ownerOnly   Boolean @default(false)
+  sortOrder   Int     @default(0)
+  householdId String? // null = global seeded question; set = custom household question
+
+  household Household? @relation(fields: [householdId], references: [id])
+  answers   HouseProfileAnswer[]
+}
+
+model HouseProfileAnswer {
+  id          String   @id @default(cuid())
+  householdId String
+  questionId  String
+  userId      String
+  answer      String
+  updatedAt   DateTime @updatedAt
+
+  household Household            @relation(fields: [householdId], references: [id])
+  question  HouseProfileQuestion @relation(fields: [questionId], references: [id])
+  user      User                 @relation(fields: [userId], references: [id])
+
+  @@unique([householdId, questionId])
+}
+
+// ─── House SOPs ───────────────────────────────────────────────────────────────
+
+model HouseSOP {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String   // room/section name, e.g. "Kitchen", "Master Bedroom"
+  notes       String?  @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household       @relation(fields: [householdId], references: [id])
+  photos    HouseSOPPhoto[]
+}
+
+model HouseSOPPhoto {
+  id        String   @id @default(cuid())
+  sopId     String
+  fileUrl   String
+  fileName  String
+  caption   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  sop HouseSOP @relation(fields: [sopId], references: [id], onDelete: Cascade)
+}
+
+// ─── Vendors ─────────────────────────────────────────────────────────────────
+
+model Vendor {
+  id            String   @id @default(cuid())
+  householdId   String
+  name          String
+  phone         String?
+  email         String?
+  type          String?
+  notes         String?
+  approvalLimit Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household        Household         @relation(fields: [householdId], references: [id])
+  purchaseRequests PurchaseRequest[]
+}
+
+// ─── Time Tracking ────────────────────────────────────────────────────────────
+
+model TimeEntry {
+  id          String          @id @default(cuid())
+  householdId String
+  workerId    String
+  approverId  String?
+  date        DateTime        @db.Date
+  startTime   String          // "09:00" — kept for legacy; prefer startAt
+  endTime     String          // "17:00" — kept for legacy; prefer endAt
+  // Clock-in / clock-out timestamps (null for legacy entries)
+  startAt     DateTime?       // actual clock-in moment
+  endAt       DateTime?       // actual clock-out moment (null while RUNNING)
+  breakMins   Int             @default(0)
+  notes       String?
+  status      TimeEntryStatus @default(PENDING)
+  approvedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id])
+  worker    User      @relation("TimeEntryWorker", fields: [workerId], references: [id])
+  approver  User?     @relation("TimeEntryApprover", fields: [approverId], references: [id])
+}
+
+// Per-worker hourly rate set by OWNER, scoped per household
+model WorkerRate {
+  id              String   @id @default(cuid())
+  householdId     String
+  userId          String
+  hourlyRateCents Int      @default(0) // rate in cents to avoid floats
+  isActive        Boolean  @default(true)
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([householdId, userId])
+}
+
+// ─── Contracts + E-sign ───────────────────────────────────────────────────────
+
+model ContractTemplate {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  description String?
+  body        String   @db.Text  // full text/HTML of the contract template
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household          @relation(fields: [householdId], references: [id])
+  contracts ContractDocument[]
+}
+
+model ContractDocument {
+  id             String         @id @default(cuid())
+  householdId    String
+  title          String
+  fileUrl        String?        // null if created from a template (no uploaded file)
+  fileName       String?
+  templateId     String?        // set if created from a ContractTemplate
+  status         ContractStatus @default(DRAFT)
+  sentAt         DateTime?
+  signedAt       DateTime?
+  signatureData  String?        @db.Text  // base64 PNG of drawn signature
+  signerName     String?
+  signerUserId   String?
+  providerRef    String?        // external e-sign provider reference (unused in internal flow)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  household Household         @relation(fields: [householdId], references: [id])
+  template  ContractTemplate? @relation(fields: [templateId], references: [id])
+  signer    User?             @relation("ContractSigner", fields: [signerUserId], references: [id])
+  actions   ContractAction[]
+}
+
+model ContractAction {
+  id         String   @id @default(cuid())
+  contractId String
+  userId     String
+  action     String   // UPLOAD | SEND | SIGN | VOID | TEMPLATE
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  contract ContractDocument @relation(fields: [contractId], references: [id])
+  user     User             @relation(fields: [userId], references: [id])
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  householdId String
+  userId      String
+  action      AuditAction
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  note        String?
+  createdAt   DateTime    @default(now())
+
+  household Household @relation(fields: [householdId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([householdId, createdAt])
+}
+
+// ─── Meal Planning ────────────────────────────────────────────────────────────
+
+model Recipe {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  servings    Int?
+  prepMins    Int?
+  cookMins    Int?
+  ingredients Json      // Array of { name: string, quantity: string, productUrl?: string }
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  mealPlans   MealPlan[]
+}
+
+model MealPlan {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipeId    String?
+  recipe      Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  date        DateTime
+  mealType    String    // BREAKFAST, LUNCH, DINNER, SNACK
+  customTitle String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([householdId, date])
+}
+
+// ─── Family Travel ────────────────────────────────────────────────────────────
+
+model TravelPlan {
+  id          String               @id @default(cuid())
+  householdId String
+  household   Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  destination String?
+  startDate   DateTime?
+  endDate     DateTime?
+  budgetCents Int?
+  notes       String?
+  status      String               @default("PLANNING")
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  checklist   TravelChecklistItem[]
+}
+
+model TravelChecklistItem {
+  id           String     @id @default(cuid())
+  travelPlanId String
+  travelPlan   TravelPlan @relation(fields: [travelPlanId], references: [id], onDelete: Cascade)
+  item         String
+  completed    Boolean    @default(false)
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+}
+
+// ─── Family Calendar ──────────────────────────────────────────────────────────
+
+model FamilyEvent {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean   @default(true)
+  color       String?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([householdId, startDate])
+}
+
+// ─── Google Calendar Integration ──────────────────────────────────────────────
+
+model GoogleCalendarLink {
+  id           String    @id @default(cuid())
+  householdId  String    @unique
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  icalUrl      String    @db.Text
+  calendarName String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// ─── Performance Reviews ───────────────────────────────────────────────────────
+
+model PerformanceReview {
+  id                 String    @id @default(cuid())
+  householdId        String
+  household          Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  reviewerId         String
+  reviewer           User      @relation("ReviewsGiven",    fields: [reviewerId],   references: [id])
+  revieweeId         String
+  reviewee           User      @relation("ReviewsReceived", fields: [revieweeId],   references: [id])
+  reviewMonth        Int       // 1–12
+  reviewYear         Int
+  overallRating      Int?      // 1–5
+  strengths          String?   @db.Text
+  improvementAreas   String?   @db.Text
+  generalComments    String?   @db.Text
+  goalsNextMonth     String?   @db.Text
+  status             String    @default("DRAFT")  // DRAFT | SUBMITTED
+  submittedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  categoryScores     PerformanceReviewScore[]
+
+  @@unique([householdId, revieweeId, reviewMonth, reviewYear])
+  @@index([householdId, revieweeId])
+}
+
+model PerformanceReviewScore {
+  id          String            @id @default(cuid())
+  reviewId    String
+  review      PerformanceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  categoryKey String
+  rating      Int               // 1–5
+  comment     String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([reviewId, categoryKey])
+}
+
+// ─── Training Videos ──────────────────────────────────────────────────────────
+
+model TrainingVideo {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  description String?   @db.Text
+  url         String    @db.Text
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  progress  TrainingVideoProgress[]
+  questions TrainingVideoQuestion[]
+
+  @@index([householdId, sortOrder])
+}
+
+model TrainingVideoProgress {
+  id          String        @id @default(cuid())
+  videoId     String
+  video       TrainingVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation("VideoProgress", fields: [userId], references: [id])
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  completedAt DateTime      @default(now())
+
+  @@unique([videoId, userId])
+  @@index([householdId])
+}
+
+model TrainingVideoQuestion {
+  id        String        @id @default(cuid())
+  videoId   String
+  video     TrainingVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  question  String        @db.Text
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  answers   TrainingVideoAnswer[]
+
+  @@index([videoId, sortOrder])
+}
+
+model TrainingVideoAnswer {
+  id         String                @id @default(cuid())
+  questionId String
+  question   TrainingVideoQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                  @relation("VideoAnswers", fields: [userId], references: [id])
+  answer     String                @db.Text
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  @@unique([questionId, userId])
+}
+
+// ─── Support Tickets ──────────────────────────────────────────────────────────
+
+model SupportTicket {
+  id            String         @id @default(cuid())
+  householdId   String
+  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  submittedById String
+  submittedBy   User           @relation("TicketSubmitter", fields: [submittedById], references: [id])
+  subject       String
+  body          String         @db.Text
+  status        TicketStatus   @default(OPEN)
+  priority      TicketPriority @default(NORMAL)
+  category      String?        // "Billing" | "Technical" | "Access" | "Other"
+  adminNote     String?        @db.Text
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  comments TicketComment[]
+
+  @@index([householdId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TicketComment {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id])
+  body       String        @db.Text
+  isInternal Boolean       @default(false) // true = admin-only note, not shown to submitter
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+// ─── Admin Audit Log ──────────────────────────────────────────────────────────
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String   // e.g. "SUSPEND_ACCOUNT", "REACTIVATE_ACCOUNT", "CLOSE_TICKET"
+  entityType String   // e.g. "Household", "User", "SupportTicket"
+  entityId   String
+  note       String?  @db.Text
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
+}

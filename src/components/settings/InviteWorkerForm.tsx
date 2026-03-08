@@ -1,0 +1,139 @@
+"use client";
+import { useState } from "react";
+
+interface Props {
+  onInvited: () => void;
+}
+
+export default function InviteWorkerForm({ onInvited }: Props) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"MANAGER" | "FAMILY">("MANAGER");
+  const [rateDollars, setRateDollars] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !email.trim()) {
+      setError("Name and email are required");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/workers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          role,
+          hourlyRateCents: rateDollars ? Math.round(parseFloat(rateDollars) * 100) : 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to invite");
+        return;
+      }
+      setName("");
+      setEmail("");
+      setRateDollars("");
+      setRole("MANAGER");
+      setOpen(false);
+      onInvited();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="btn-primary text-sm px-4 py-2">
+        + Invite Worker
+      </button>
+    );
+  }
+
+  return (
+    <div className="card p-5 mb-5">
+      <h3 className="font-semibold text-slate-800 mb-4">Invite New Worker</h3>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">Name</label>
+          <input
+            className="input text-sm"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Full name"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">Email</label>
+          <input
+            type="email"
+            className="input text-sm"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="worker@email.com"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">Role</label>
+          <select
+            className="input text-sm"
+            value={role}
+            onChange={(e) => setRole(e.target.value as "MANAGER" | "FAMILY")}
+          >
+            <option value="MANAGER">Manager (worker)</option>
+            <option value="FAMILY">Family member</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500 block mb-1">
+            Hourly Rate (optional)
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              className="input text-sm pl-7"
+              value={rateDollars}
+              onChange={(e) => setRateDollars(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="btn-primary text-sm py-2 disabled:opacity-50"
+        >
+          {submitting ? "Inviting…" : "Send Invite"}
+        </button>
+        <button
+          onClick={() => {
+            setOpen(false);
+            setError("");
+          }}
+          className="btn-secondary text-sm py-2"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <p className="text-xs text-slate-400 mt-3">
+        If this email doesn&apos;t have an account yet, one will be created automatically. Share
+        their temporary credentials with them to log in.
+      </p>
+    </div>
+  );
+}
