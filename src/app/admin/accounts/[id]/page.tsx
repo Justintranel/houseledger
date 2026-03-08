@@ -149,7 +149,7 @@ export default function AdminAccountDetailPage() {
                 <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold">
-                      {m.name.charAt(0).toUpperCase()}
+                      {(m.name ?? "?").charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-slate-800">{m.name}</p>
