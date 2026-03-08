@@ -1,20 +1,16 @@
 "use client";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Suspense } from "react";
-import { PLANS } from "@/lib/stripe";
 
 function SignupForm() {
   const router = useRouter();
-  const params = useSearchParams();
-  const promoFromUrl = params.get("promo") || "";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const plan = "standard" as const;
-  const [promo, setPromo] = useState(promoFromUrl);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,22 +26,27 @@ function SignupForm() {
       body: JSON.stringify({ name, email, password }),
     });
     const regData = await regRes.json();
-    if (!regRes.ok) { setError(regData.error || "Registration failed."); setLoading(false); return; }
-
-    // 2. Create Stripe Checkout session
-    const checkoutRes = await fetch("/api/stripe/create-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, planId: plan, promoCode: promo || undefined }),
-    });
-    const checkoutData = await checkoutRes.json();
-    if (!checkoutRes.ok || !checkoutData.url) {
-      setError("Could not start checkout. Please try again.");
+    if (!regRes.ok) {
+      setError(regData.error || "Registration failed.");
       setLoading(false);
       return;
     }
 
-    window.location.href = checkoutData.url;
+    // 2. Sign in immediately (so they have a session for onboarding)
+    const signInResult = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (signInResult?.error) {
+      setError("Account created but sign-in failed. Please log in manually.");
+      setLoading(false);
+      return;
+    }
+
+    // 3. Go to onboarding
+    router.push("/onboarding");
   };
 
   return (
@@ -58,40 +59,63 @@ function SignupForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
-          <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Jane Smith" />
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="input"
+            placeholder="Jane Smith"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="jane@example.com" />
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input"
+            placeholder="jane@example.com"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-          <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="Min. 8 characters" />
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input"
+            placeholder="Min. 8 characters"
+          />
         </div>
 
-        {/* Plan display (single plan) */}
-        <div className="p-3 rounded-lg border-2 border-brand-600 bg-brand-50 flex items-center justify-between">
-          <p className="font-semibold text-sm text-slate-900">{PLANS.standard.name}</p>
-          <p className="text-brand-600 font-bold">${PLANS.standard.price}/mo</p>
+        {/* 7-day trial callout */}
+        <div className="p-3 rounded-lg border-2 border-brand-600 bg-brand-50">
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-semibold text-sm text-slate-900">The House Ledger System</p>
+            <p className="text-brand-600 font-bold text-sm">$99/mo</p>
+          </div>
+          <p className="text-xs text-slate-500">
+            7-day free trial · Card required · Auto-renews monthly · Cancel anytime
+          </p>
         </div>
 
-        {/* Promo code */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Promo code <span className="text-slate-400 font-normal">(optional — 50% off)</span>
-          </label>
-          <input type="text" value={promo} onChange={(e) => setPromo(e.target.value)} className="input" placeholder="HALFOFF" />
-        </div>
-
-        {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+            {error}
+          </p>
+        )}
 
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? "Creating account…" : "Continue to payment →"}
+          {loading ? "Creating account…" : "Create Account →"}
         </button>
       </form>
 
       <p className="text-center text-xs text-slate-400 mt-4">
-        You&apos;ll be redirected to Stripe to complete payment securely.
+        You&apos;ll add your payment method after setting up your household.
       </p>
       <p className="text-center text-sm text-slate-500 mt-3">
         Already have an account?{" "}

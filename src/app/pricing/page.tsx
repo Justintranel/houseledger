@@ -13,7 +13,7 @@ const FEATURES = [
   "Contract e-sign (internal signature app)",
   "Vendor directory & notes",
   "All House Ledger materials included",
-  "14-day free trial",
+  "7-day free trial (card required)",
   "Priority email support",
 ];
 
@@ -69,7 +69,7 @@ export default function PricingPage() {
           <Link href="/signup" className="btn-primary w-full text-center block py-4 text-base font-semibold">
             Start Your Free Trial →
           </Link>
-          <p className="text-center text-xs text-slate-400 mt-3">14-day free trial · No credit card required to start</p>
+          <p className="text-center text-xs text-slate-400 mt-3">7-day free trial · Card required · Cancel before trial ends to pay nothing</p>
         </div>
 
         <div className="mt-10 text-center space-y-3 text-sm text-slate-400">
@@ -83,7 +83,7 @@ export default function PricingPage() {
             { q: "Is there just one plan?", a: "Yes. We believe the House Ledger System works best as one complete package. Every subscriber gets everything — all nine modules, all House Ledger materials, and unlimited household members." },
             { q: "Can I cancel anytime?", a: "Yes. Cancel anytime from your account settings. There are no long-term contracts or cancellation fees." },
             { q: "Are there per-seat fees?", a: "No. $99/month covers your entire household — owner, house manager, and family members." },
-            { q: "What happens after the free trial?", a: "After 14 days, your subscription begins at $99/month. We'll notify you before the trial ends." },
+            { q: "What happens after the free trial?", a: "After 7 days, your card is automatically charged $99/month. You can cancel anytime before the trial ends to pay nothing." },
           ].map(({ q, a }) => (
             <div key={q} className="border-b border-slate-200 py-4">
               <p className="font-semibold text-slate-900 mb-1 text-sm">{q}</p>

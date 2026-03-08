@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       includeStarterTasks,
     } = parsed.data;
 
-    // Update household
+    // Update household — set trial end date 7 days from now
     await prisma.household.update({
       where: { id: householdId },
       data: {
@@ -101,6 +101,8 @@ export async function POST(req: NextRequest) {
         workStart: workStart ?? null,
         workEnd: workEnd ?? null,
         onboardingCompleted: true,
+        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        // accountStatus defaults to TRIALING in schema
       },
     });
 

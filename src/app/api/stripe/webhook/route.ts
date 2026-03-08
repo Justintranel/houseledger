@@ -1,159 +1,195 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
+/** Map Stripe subscription status → our AccountStatus enum value */
+function mapStripeStatus(stripeStatus: string): string {
+  const map: Record<string, string> = {
+    active: "ACTIVE",
+    trialing: "TRIALING",
+    past_due: "PAST_DUE",
+    unpaid: "UNPAID",
+    canceled: "CANCELED",
+    paused: "SUSPENDED",
+    incomplete: "TRIALING",
+    incomplete_expired: "CANCELED",
+  };
+  return map[stripeStatus] ?? "ACTIVE";
+}
 
 export async function POST(req: NextRequest) {
+  // CRITICAL: Use raw body text — do NOT call req.json()
   const body = await req.text();
-  const signature = req.headers.get("stripe-signature");
+  const sig = req.headers.get("stripe-signature");
 
-  if (!signature) {
-    return NextResponse.json(
-      { error: "Missing Stripe signature" },
-      { status: 400 }
-    );
+  if (!sig) {
+    return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
   }
 
   let event: Stripe.Event;
-
   try {
     event = stripe.webhooks.constructEvent(
       body,
-      signature,
+      sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err) {
-    console.error("[Stripe Webhook] Signature verification failed:", err);
-    return NextResponse.json(
-      { error: "Webhook signature verification failed" },
-      { status: 400 }
-    );
+  } catch (err: any) {
+    console.error("[stripe/webhook] signature verification failed:", err.message);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
     switch (event.type) {
+      // ── Checkout completed (trial starts, card captured) ───────────────────
       case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const customerEmail = session.customer_email;
-        const customerId = session.customer as string | null;
-        const subscriptionId = session.subscription as string | null;
+        const checkoutSession = event.data.object as Stripe.Checkout.Session;
 
-        if (!customerEmail) break;
+        // householdId passed via metadata and client_reference_id
+        const householdId =
+          checkoutSession.metadata?.householdId ??
+          checkoutSession.client_reference_id;
 
-        // Find or create user
-        let user = await prisma.user.findUnique({
-          where: { email: customerEmail.toLowerCase() },
-        });
-
-        if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email: customerEmail.toLowerCase(),
-              name: customerEmail.split("@")[0],
-              passwordHash: "",
-            },
-          });
+        if (!householdId) {
+          console.error("[webhook] checkout.session.completed: no householdId in metadata");
+          break;
         }
 
-        // Create or update Household
-        let household = await prisma.household.findFirst({
-          where: {
-            members: { some: { userId: user.id, role: "OWNER" } },
-          },
-        });
+        const subscriptionId = checkoutSession.subscription as string;
+        const customerId = checkoutSession.customer as string;
 
-        if (!household) {
-          household = await prisma.household.create({
-            data: {
-              name: `${user.name ?? customerEmail}'s Household`,
-              stripeCustomerId: customerId ?? undefined,
-              stripeSubscriptionId: subscriptionId ?? undefined,
-              subscriptionStatus: "active",
-              onboardingCompleted: false,
-            },
-          });
-
-          // Create OWNER membership
-          await prisma.householdMember.create({
-            data: {
-              userId: user.id,
-              householdId: household.id,
-              role: "OWNER",
-            },
-          });
-
-          // Create default "house-chat" channel
-          const channel = await prisma.channel.create({
-            data: {
-              name: "house-chat",
-              householdId: household.id,
-            },
-          });
-
-          // Add owner to channel
-          await prisma.channelMember.create({
-            data: {
-              channelId: channel.id,
-              userId: user.id,
-            },
-          });
-        } else {
-          await prisma.household.update({
-            where: { id: household.id },
-            data: {
-              stripeCustomerId: customerId ?? undefined,
-              stripeSubscriptionId: subscriptionId ?? undefined,
-              subscriptionStatus: "active",
-            },
-          });
+        if (!subscriptionId || !customerId) {
+          console.error("[webhook] checkout.session.completed: missing subscriptionId or customerId");
+          break;
         }
 
-        break;
-      }
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const customerId = subscription.customer as string;
-
-        await prisma.household.updateMany({
-          where: { stripeCustomerId: customerId },
+        await prisma.household.update({
+          where: { id: householdId },
           data: {
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
             subscriptionStatus: subscription.status,
-            stripeSubscriptionId: subscription.id,
+            accountStatus: mapStripeStatus(subscription.status) as any,
+            stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            trialEndsAt: subscription.trial_end
+              ? new Date(subscription.trial_end * 1000)
+              : undefined,
           },
         });
 
+        console.log(`[webhook] checkout completed → household ${householdId}, status=${subscription.status}`);
         break;
       }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const customerId = subscription.customer as string;
+      // ── Invoice paid (trial converts to paid, or monthly renewal) ──────────
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = invoice.subscription as string;
+        if (!subId) break;
 
-        await prisma.household.updateMany({
-          where: { stripeCustomerId: customerId },
-          data: { subscriptionStatus: "canceled" },
+        const household = await prisma.household.findFirst({
+          where: { stripeSubscriptionId: subId },
+        });
+        if (!household) break;
+
+        const sub = await stripe.subscriptions.retrieve(subId);
+
+        await prisma.household.update({
+          where: { id: household.id },
+          data: {
+            accountStatus: "ACTIVE",
+            subscriptionStatus: "active",
+            stripeCurrentPeriodEnd: new Date(sub.current_period_end * 1000),
+            stripeLatestInvoiceId: invoice.id,
+            pastDueAt: null,
+          },
         });
 
+        console.log(`[webhook] invoice paid → household ${household.id} is now ACTIVE`);
+        break;
+      }
+
+      // ── Invoice payment failed ─────────────────────────────────────────────
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = invoice.subscription as string;
+        if (!subId) break;
+
+        const household = await prisma.household.findFirst({
+          where: { stripeSubscriptionId: subId },
+        });
+        if (!household) break;
+
+        await prisma.household.update({
+          where: { id: household.id },
+          data: {
+            accountStatus: "PAST_DUE",
+            subscriptionStatus: "past_due",
+            pastDueAt: new Date(),
+          },
+        });
+
+        console.log(`[webhook] payment failed → household ${household.id} is PAST_DUE`);
+        break;
+      }
+
+      // ── Subscription updated (plan change, card update, pause, etc.) ────────
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+
+        const household = await prisma.household.findFirst({
+          where: { stripeSubscriptionId: sub.id },
+        });
+        if (!household) break;
+
+        await prisma.household.update({
+          where: { id: household.id },
+          data: {
+            subscriptionStatus: sub.status,
+            accountStatus: mapStripeStatus(sub.status) as any,
+            stripeCurrentPeriodEnd: new Date(sub.current_period_end * 1000),
+            trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : undefined,
+          },
+        });
+
+        console.log(`[webhook] subscription updated → household ${household.id}, status=${sub.status}`);
+        break;
+      }
+
+      // ── Subscription canceled (via portal or by Stripe) ───────────────────
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+
+        const household = await prisma.household.findFirst({
+          where: { stripeSubscriptionId: sub.id },
+        });
+        if (!household) break;
+
+        await prisma.household.update({
+          where: { id: household.id },
+          data: {
+            accountStatus: "CANCELED",
+            subscriptionStatus: "canceled",
+            canceledAt: new Date(),
+          },
+        });
+
+        console.log(`[webhook] subscription canceled → household ${household.id} is CANCELED`);
         break;
       }
 
       default:
         break;
     }
-
-    return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("[Stripe Webhook] Handler error:", err);
-    return NextResponse.json(
-      { error: "Webhook handler error" },
-      { status: 500 }
-    );
+    console.error(`[stripe/webhook] error handling ${event.type}:`, err);
+    // Return 200 to prevent Stripe from retrying — error is logged
   }
+
+  return NextResponse.json({ received: true });
 }

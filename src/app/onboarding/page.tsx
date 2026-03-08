@@ -141,8 +141,8 @@ export default function OnboardingPage() {
 
       setDone(true);
 
-      // Brief celebration → then navigate to dashboard
-      setTimeout(() => router.push("/dashboard"), 2200);
+      // Brief celebration → then navigate to billing to start free trial
+      setTimeout(() => router.push("/dashboard/billing?welcome=1"), 2200);
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
     } finally {
@@ -161,7 +161,7 @@ export default function OnboardingPage() {
             {householdName} is all set!
           </h1>
           <p className="text-white/60 text-lg">
-            Taking you to your dashboard…
+            Starting your 7-day free trial…
           </p>
         </div>
       </main>

@@ -32,6 +32,7 @@ export const PLANS = {
 /**
  * Create a Stripe Checkout Session for a new subscription.
  * Supports 50% discount via promo code OR eligibility token.
+ * (Legacy — used by pre-auth signup flow.)
  */
 export async function createCheckoutSession({
   email,
@@ -71,6 +72,42 @@ export async function createCheckoutSession({
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { planId },
+  });
+
+  return session;
+}
+
+/**
+ * Create a Stripe Checkout Session for an authenticated household owner.
+ * Includes a 7-day free trial with card capture — auto-converts to $99/month.
+ */
+export async function createBillingCheckoutSession({
+  email,
+  householdId,
+  successUrl,
+  cancelUrl,
+}: {
+  email: string;
+  householdId: string;
+  successUrl: string;
+  cancelUrl: string;
+}) {
+  const plan = PLANS.standard;
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: email,
+    line_items: [{ price: plan.priceId, quantity: 1 }],
+    subscription_data: {
+      trial_period_days: 7,
+      metadata: { householdId },
+    },
+    payment_method_collection: "always", // capture card even during trial
+    allow_promotion_codes: true,
+    metadata: { householdId },
+    client_reference_id: householdId,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   });
 
   return session;

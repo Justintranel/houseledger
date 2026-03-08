@@ -60,6 +60,7 @@ const ADMIN_NAV = [
   { href: "/dashboard/settings",         icon: "⚙️", label: "Settings" },
   { href: "/dashboard/settings/workers", icon: "👥", label: "Workers & Rates" },
   { href: "/dashboard/hire",             icon: "🤝", label: "Hire a House Manager" },
+  { href: "/dashboard/billing",          icon: "💰", label: "Billing" },
 ];
 
 interface Props {
@@ -154,6 +155,7 @@ export default function Sidebar({ role, householdName, flags }: Props) {
               {ADMIN_NAV.map((item) => {
                 if (item.href === "/dashboard/settings" && role !== "OWNER") return null;
                 if (item.href === "/dashboard/hire" && role !== "OWNER") return null;
+                if (item.href === "/dashboard/billing" && role !== "OWNER") return null;
                 const active = isActive(item.href);
                 return (
                   <Link
