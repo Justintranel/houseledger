@@ -1,8 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
-const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+// Lazy init — don't create at module load time so build doesn't fail without the key
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
+function getFrom() { return process.env.EMAIL_FROM ?? "onboarding@resend.dev"; }
+function getAppUrl() { return process.env.NEXTAUTH_URL ?? "http://localhost:3001"; }
 const APP_NAME = "The House Ledger";
 
 // ─── Shared layout wrapper ─────────────────────────────────────────────────
@@ -35,7 +38,7 @@ function layout(title: string, body: string): string {
         <tr>
           <td style="padding:20px 36px;border-top:1px solid #e2e8f0;">
             <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-              © ${new Date().getFullYear()} ${APP_NAME} · <a href="${APP_URL}" style="color:#94a3b8;">houseledger.vercel.app</a>
+              © ${new Date().getFullYear()} ${APP_NAME} · <a href="${getAppUrl()}" style="color:#94a3b8;">houseledger.vercel.app</a>
             </p>
           </td>
         </tr>
@@ -67,10 +70,10 @@ function note(text: string): string {
 // ─── 1. Password Reset ─────────────────────────────────────────────────────
 
 export async function sendPasswordResetEmail(to: string, token: string) {
-  const url = `${APP_URL}/reset-password?token=${token}`;
+  const url = `${getAppUrl()}/reset-password?token=${token}`;
 
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to,
     subject: `Reset your ${APP_NAME} password`,
     html: layout(
@@ -86,8 +89,8 @@ export async function sendPasswordResetEmail(to: string, token: string) {
 // ─── 2. Welcome — new owner account ───────────────────────────────────────
 
 export async function sendWelcomeEmail(to: string, name: string, householdName: string) {
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to,
     subject: `Welcome to ${APP_NAME}!`,
     html: layout(
@@ -95,7 +98,7 @@ export async function sendWelcomeEmail(to: string, name: string, householdName: 
       `${h1(`Welcome, ${name}! 👋`)}
        ${p(`Your household <strong>${householdName}</strong> is set up and ready to go on ${APP_NAME}.`)}
        ${p("Log in to manage your household, assign tasks to your house manager, track inventory, approve purchases, and more.")}
-       ${btn("Go to my dashboard", `${APP_URL}/dashboard`)}
+       ${btn("Go to my dashboard", `${getAppUrl()}/dashboard`)}
        ${note("If you have any questions, reply to this email and we'll be happy to help.")}`
     ),
   });
@@ -112,8 +115,8 @@ export async function sendInviteEmail(
 ) {
   const roleLabel = role === "MANAGER" ? "House Manager" : "Family Member";
 
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to,
     subject: `You've been invited to ${householdName} on ${APP_NAME}`,
     html: layout(
@@ -125,7 +128,7 @@ export async function sendInviteEmail(
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Email</td><td style="font-size:14px;font-weight:600;color:#1e293b;">${to}</td></tr>
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Temporary Password</td><td style="font-size:14px;font-weight:600;color:#1e293b;">${tempPassword}</td></tr>
        </table>
-       ${btn("Sign in now", `${APP_URL}/login`)}
+       ${btn("Sign in now", `${getAppUrl()}/login`)}
        ${note("Please change your password after your first login. If you weren't expecting this invitation, you can ignore this email.")}`
     ),
   });
@@ -142,10 +145,10 @@ export async function sendPurchaseRequestEmail(
   description: string,
   requestId: string
 ) {
-  const url = `${APP_URL}/dashboard/approvals`;
+  const url = `${getAppUrl()}/dashboard/approvals`;
 
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to: ownerEmail,
     subject: `Purchase request from ${managerName} — $${amount.toFixed(2)}`,
     html: layout(
@@ -171,8 +174,8 @@ export async function sendPurchaseApprovedEmail(
   vendor: string,
   amount: number
 ) {
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to: managerEmail,
     subject: `✅ Purchase approved — ${vendor} $${amount.toFixed(2)}`,
     html: layout(
@@ -183,7 +186,7 @@ export async function sendPurchaseApprovedEmail(
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Vendor</td><td style="font-size:14px;font-weight:600;color:#166534;">${vendor}</td></tr>
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Amount</td><td style="font-size:14px;font-weight:600;color:#166534;">$${amount.toFixed(2)}</td></tr>
        </table>
-       ${btn("View in dashboard", `${APP_URL}/dashboard/approvals`)}
+       ${btn("View in dashboard", `${getAppUrl()}/dashboard/approvals`)}
        ${note("You're good to go ahead with this purchase.")}`
     ),
   });
@@ -198,8 +201,8 @@ export async function sendPurchaseDeniedEmail(
   amount: number,
   reason: string
 ) {
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to: managerEmail,
     subject: `❌ Purchase request denied — ${vendor}`,
     html: layout(
@@ -211,7 +214,7 @@ export async function sendPurchaseDeniedEmail(
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Amount</td><td style="font-size:14px;font-weight:600;color:#991b1b;">$${amount.toFixed(2)}</td></tr>
          <tr><td style="font-size:14px;color:#64748b;padding:4px 0;vertical-align:top;">Reason</td><td style="font-size:14px;color:#1e293b;">${reason}</td></tr>
        </table>
-       ${btn("View in dashboard", `${APP_URL}/dashboard/approvals`)}
+       ${btn("View in dashboard", `${getAppUrl()}/dashboard/approvals`)}
        ${note("If you have questions, reach out to your household owner.")}`
     ),
   });
@@ -255,8 +258,8 @@ export async function sendWeeklySummaryEmail(data: WeeklySummaryData) {
     `<li style="margin:6px 0;font-size:14px;color:#475569;"><strong>${n.author}</strong> (${n.date}): ${n.content}</li>`
   ).join("");
 
-  await resend.emails.send({
-    from: FROM,
+  await getResend().emails.send({
+    from: getFrom(),
     to: ownerEmail,
     subject: `📋 Weekly Summary — ${householdName} (${weekLabel})`,
     html: layout(
@@ -293,7 +296,7 @@ export async function sendWeeklySummaryEmail(data: WeeklySummaryData) {
        <h2 style="font-size:16px;font-weight:600;color:#1e293b;margin:24px 0 12px;">📝 Recent Notes</h2>
        <ul style="margin:0;padding:0 0 0 18px;">${notesList}</ul>` : ""}
 
-       ${btn("View Full Dashboard", `${APP_URL}/dashboard`)}
+       ${btn("View Full Dashboard", `${getAppUrl()}/dashboard`)}
        ${note("You're receiving this every Friday evening as your weekly household digest.")}`
     ),
   });
