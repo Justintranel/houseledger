@@ -60,14 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = (session.user as any).id as string;
-  const householdId = (session.user as any).householdId as string | undefined;
-
-  if (!householdId) {
-    return NextResponse.json(
-      { error: "No household associated with your account" },
-      { status: 400 }
-    );
-  }
+  let householdId = (session.user as any).householdId as string | undefined;
 
   try {
     const body = await req.json();
@@ -91,20 +84,38 @@ export async function POST(req: NextRequest) {
       includeStarterTasks,
     } = parsed.data;
 
-    // Update household — set trial end date 7 days from now
-    await prisma.household.update({
-      where: { id: householdId },
-      data: {
-        name: householdName,
-        address: address ?? null,
-        workDays,
-        workStart: workStart ?? null,
-        workEnd: workEnd ?? null,
-        onboardingCompleted: true,
-        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        // accountStatus defaults to TRIALING in schema
-      },
-    });
+    if (!householdId) {
+      // New signup: create household + owner membership in one transaction
+      const household = await prisma.household.create({
+        data: {
+          name: householdName,
+          address: address ?? null,
+          workDays,
+          workStart: workStart ?? null,
+          workEnd: workEnd ?? null,
+          onboardingCompleted: true,
+          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          members: {
+            create: { userId, role: "OWNER" },
+          },
+        },
+      });
+      householdId = household.id;
+    } else {
+      // Existing household (e.g. re-running onboarding): update it
+      await prisma.household.update({
+        where: { id: householdId },
+        data: {
+          name: householdName,
+          address: address ?? null,
+          workDays,
+          workStart: workStart ?? null,
+          workEnd: workEnd ?? null,
+          onboardingCompleted: true,
+          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+    }
 
     // Create/invite family members
     for (const email of familyEmails) {
@@ -148,7 +159,7 @@ export async function POST(req: NextRequest) {
       console.error("[onboarding] welcome email failed:", emailErr);
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, householdId });
   } catch (err) {
     console.error("[POST /api/onboarding]", err);
     return NextResponse.json(

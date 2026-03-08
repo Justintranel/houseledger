@@ -130,14 +130,19 @@ export default function OnboardingPage() {
         }),
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Something went wrong");
+        throw new Error(data.error ?? "Something went wrong");
       }
 
-      // Update the JWT so the middleware sees onboardingCompleted = true
-      // without needing a sign-out/sign-in cycle
-      await update({ onboardingCompleted: true });
+      // Update the JWT so middleware sees onboardingCompleted = true and the
+      // new householdId (created during onboarding for fresh signups) without
+      // needing a sign-out / sign-in cycle.
+      await update({
+        onboardingCompleted: true,
+        householdId: data.householdId,
+        role: "OWNER",
+      });
 
       setDone(true);
 

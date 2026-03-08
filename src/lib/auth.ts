@@ -85,10 +85,18 @@ export const authOptions: NextAuthOptions = {
         if (token.isSuperAdmin) token.onboardingCompleted = true;
       }
 
-      // Allow the onboarding page to mark the JWT as complete without
-      // requiring a sign-out / sign-in cycle
-      if (trigger === "update" && session?.onboardingCompleted !== undefined) {
-        token.onboardingCompleted = session.onboardingCompleted;
+      // Allow the onboarding page to update the JWT without a sign-out/sign-in cycle.
+      // Handles: onboardingCompleted, householdId (created during onboarding), and role.
+      if (trigger === "update") {
+        if (session?.onboardingCompleted !== undefined) {
+          token.onboardingCompleted = session.onboardingCompleted;
+        }
+        if (session?.householdId !== undefined) {
+          token.householdId = session.householdId;
+        }
+        if (session?.role !== undefined) {
+          token.role = session.role;
+        }
       }
       return token;
     },
