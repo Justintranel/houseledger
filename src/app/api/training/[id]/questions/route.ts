@@ -14,8 +14,10 @@ export async function GET(
   try {
     const auth = await requireHouseholdRole();
 
-    const video = await prisma.trainingVideo.findUnique({ where: { id: params.id } });
-    if (!video || video.householdId !== auth.householdId)
+    const video = await prisma.trainingVideo.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!video)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const questions = await prisma.trainingVideoQuestion.findMany({
@@ -53,8 +55,10 @@ export async function POST(
     if (auth.role !== "OWNER" && auth.role !== "FAMILY")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const video = await prisma.trainingVideo.findUnique({ where: { id: params.id } });
-    if (!video || video.householdId !== auth.householdId)
+    const video = await prisma.trainingVideo.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!video)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();

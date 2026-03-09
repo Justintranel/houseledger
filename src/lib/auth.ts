@@ -3,6 +3,34 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
 
+// ─── Startup guard ────────────────────────────────────────────────────────────
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "NEXTAUTH_SECRET is not set. Set it in .env.local before starting the server."
+  );
+}
+
+// ─── In-memory login rate limiter ─────────────────────────────────────────────
+// 5 attempts per email per 15-minute sliding window.
+// For multi-instance production deployments, back this with Redis instead.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
+const _loginAttempts = new Map<string, { count: number; windowStart: number }>();
+
+function checkLoginRateLimit(email: string): boolean {
+  const now = Date.now();
+  const key = email.toLowerCase();
+  const entry = _loginAttempts.get(key);
+
+  if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {
+    _loginAttempts.set(key, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) return false;
+  entry.count += 1;
+  return true;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -13,16 +41,23 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
-        if (!user) { console.log("[auth] user not found:", credentials.email); return null; }
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) { console.log("[auth] wrong password for:", credentials.email); return null; }
 
-        console.log("[auth] login:", credentials.email, "isSuperAdmin:", user.isSuperAdmin);
+        // Rate-limit by email before touching the database
+        if (!checkLoginRateLimit(credentials.email)) {
+          throw new Error(
+            "Too many login attempts. Please wait 15 minutes and try again."
+          );
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+        if (!user) return null;
+        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!ok) return null;
 
         // Super Admin: no household membership needed
         if (user.isSuperAdmin) {
-          console.log("[auth] returning super admin session");
           return {
             id: user.id,
             name: user.name,
@@ -58,13 +93,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger, session }: any) {
       // Initial sign-in: populate token from the user object
       if (user) {
-        console.log("[jwt] user object received:", JSON.stringify({ id: user.id, email: user.email, isSuperAdmin: user.isSuperAdmin, onboardingCompleted: user.onboardingCompleted }));
         token.id = user.id;
         token.role = user.role;
         token.householdId = user.householdId;
         token.onboardingCompleted = user.onboardingCompleted;
         token.isSuperAdmin = user.isSuperAdmin ?? false;
-        console.log("[jwt] token.isSuperAdmin set to:", token.isSuperAdmin);
       }
 
       // Backfill isSuperAdmin for sessions created before this field existed.
@@ -86,16 +119,15 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Allow the onboarding page to update the JWT without a sign-out/sign-in cycle.
-      // Handles: onboardingCompleted, householdId (created during onboarding), and role.
+      // NOTE: `role` is intentionally excluded — accepting role from the client via
+      // session.update({ role: "OWNER" }) would let any authenticated user escalate
+      // their own privileges. Use requireHouseholdRole() for a DB-authoritative role.
       if (trigger === "update") {
         if (session?.onboardingCompleted !== undefined) {
           token.onboardingCompleted = session.onboardingCompleted;
         }
         if (session?.householdId !== undefined) {
           token.householdId = session.householdId;
-        }
-        if (session?.role !== undefined) {
-          token.role = session.role;
         }
       }
       return token;

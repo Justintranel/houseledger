@@ -23,11 +23,11 @@ export async function GET(
 ) {
   try {
     const auth = await requireHouseholdRole();
-    const plan = await prisma.travelPlan.findUnique({
-      where: { id: params.id },
+    const plan = await prisma.travelPlan.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
       include: { checklist: { orderBy: { sortOrder: "asc" } } },
     });
-    if (!plan || plan.householdId !== auth.householdId)
+    if (!plan)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(plan);
   } catch (err) {
@@ -46,8 +46,8 @@ export async function PATCH(
     if (!can(auth.role, "travel:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const plan = await prisma.travelPlan.findUnique({ where: { id: params.id } });
-    if (!plan || plan.householdId !== auth.householdId)
+    const plan = await prisma.travelPlan.findFirst({ where: { id: params.id, householdId: auth.householdId } });
+    if (!plan)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
@@ -83,8 +83,8 @@ export async function DELETE(
     if (!can(auth.role, "travel:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const plan = await prisma.travelPlan.findUnique({ where: { id: params.id } });
-    if (!plan || plan.householdId !== auth.householdId)
+    const plan = await prisma.travelPlan.findFirst({ where: { id: params.id, householdId: auth.householdId } });
+    if (!plan)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.travelPlan.delete({ where: { id: params.id } });

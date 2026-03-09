@@ -29,8 +29,10 @@ export async function PATCH(
     if (!can(auth.role, "recipes:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const existing = await prisma.recipe.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.recipe.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
@@ -63,8 +65,10 @@ export async function DELETE(
     if (!can(auth.role, "recipes:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const existing = await prisma.recipe.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.recipe.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.recipe.delete({ where: { id: params.id } });

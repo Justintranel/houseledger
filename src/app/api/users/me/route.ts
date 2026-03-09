@@ -10,7 +10,15 @@ export const dynamic = "force-dynamic";
 const patchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   phone: z.string().max(30).optional().nullable(),
-  profileImageUrl: z.string().max(500000).optional().nullable(), // base64 data URL
+  profileImageUrl: z
+    .string()
+    .max(500_000)
+    .regex(
+      /^data:image\/(jpeg|png|webp|gif|avif);base64,/,
+      "profileImageUrl must be a base64-encoded JPEG, PNG, WebP, GIF, or AVIF data URL"
+    )
+    .optional()
+    .nullable(), // base64 data URL — MIME type is validated above
 });
 
 export async function GET() {

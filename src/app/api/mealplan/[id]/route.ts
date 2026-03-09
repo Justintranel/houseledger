@@ -15,8 +15,10 @@ export async function DELETE(
     if (!can(auth.role, "mealplan:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const existing = await prisma.mealPlan.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.mealPlan.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.mealPlan.delete({ where: { id: params.id } });

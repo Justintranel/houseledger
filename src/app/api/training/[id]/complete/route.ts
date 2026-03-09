@@ -13,8 +13,10 @@ export async function POST(
   try {
     const auth = await requireHouseholdRole();
 
-    const video = await prisma.trainingVideo.findUnique({ where: { id: params.id } });
-    if (!video || video.householdId !== auth.householdId)
+    const video = await prisma.trainingVideo.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!video)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const progress = await prisma.trainingVideoProgress.upsert({

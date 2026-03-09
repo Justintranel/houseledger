@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { sendPurchaseDeniedEmail } from "@/lib/email";
+import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,24 +16,18 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const hid = session.user.householdId;
-  const role = (session.user as any).role as "OWNER" | "FAMILY" | "MANAGER";
-  const userId = (session.user as any).id as string;
-
-  if (role !== "OWNER" && role !== "FAMILY") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { id } = params;
-
   try {
+    const auth = await requireHouseholdRole();
+
+    // OWNER and FAMILY can deny purchase requests
+    if (auth.role !== "OWNER" && auth.role !== "FAMILY") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = params;
+
     const body = await req.json();
     const parsed = schema.safeParse(body);
-
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.errors[0]?.message ?? "Invalid input" },
@@ -44,13 +37,11 @@ export async function POST(
 
     const { reason } = parsed.data;
 
-    const request = await prisma.purchaseRequest.findUnique({ where: { id } });
+    const request = await prisma.purchaseRequest.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
     if (!request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
-    }
-
-    if (request.householdId !== hid) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const updated = await prisma.purchaseRequest.update({
@@ -58,8 +49,7 @@ export async function POST(
       data: {
         status: "DENIED",
         denialReason: reason,
-        approverId: userId,
-        
+        approverId: auth.userId,
       },
       include: {
         requester: { select: { id: true, name: true } },
@@ -68,8 +58,8 @@ export async function POST(
     });
 
     await audit({
-      householdId: hid,
-      userId,
+      householdId: auth.householdId,
+      userId: auth.userId,
       action: "DENY",
       entityType: "PurchaseRequest",
       entityId: id,
@@ -97,10 +87,9 @@ export async function POST(
 
     return NextResponse.json(updated);
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[POST /api/approvals/[id]/deny]", err);
-    return NextResponse.json(
-      { error: "Failed to deny request" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to deny request" }, { status: 500 });
   }
 }

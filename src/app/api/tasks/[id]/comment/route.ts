@@ -25,10 +25,10 @@ export async function POST(
       );
     }
 
-    const instance = await prisma.taskInstance.findUnique({ where: { id: params.id } });
+    const instance = await prisma.taskInstance.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (instance.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const comment = await prisma.taskComment.create({
       data: {

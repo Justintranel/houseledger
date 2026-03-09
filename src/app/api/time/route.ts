@@ -37,10 +37,11 @@ export async function GET(req: NextRequest) {
       where.workerId = auth.userId;
     }
 
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
     if (from || to) {
       const dateFilter: Record<string, unknown> = {};
-      if (from) dateFilter.gte = new Date(from + "T00:00:00");
-      if (to) dateFilter.lte = new Date(to + "T23:59:59");
+      if (from && DATE_RE.test(from)) dateFilter.gte = new Date(from + "T00:00:00");
+      if (to && DATE_RE.test(to)) dateFilter.lte = new Date(to + "T23:59:59");
       where.date = dateFilter;
     }
 
@@ -121,8 +122,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { id, status, breakMins, notes } = parsed.data;
-    const entry = await prisma.timeEntry.findUnique({ where: { id } });
-    if (!entry || entry.householdId !== auth.householdId)
+    const entry = await prisma.timeEntry.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
+    if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const updateData: Record<string, unknown> = {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadFile } from "@/lib/storage";
+import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
+import { can } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,17 +11,15 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const hid = session.user.householdId;
-  const role = (session.user as any).role as string;
-  if (role !== "OWNER")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   try {
-    const sop = await prisma.houseSOP.findUnique({ where: { id: params.id } });
-    if (!sop || sop.householdId !== hid)
+    const auth = await requireHouseholdRole();
+    if (!can(auth.role, "houseprofile:write"))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const sop = await prisma.houseSOP.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
+    if (!sop)
       return NextResponse.json({ error: "SOP not found" }, { status: 404 });
 
     const formData = await req.formData();
@@ -52,6 +50,8 @@ export async function POST(
 
     return NextResponse.json(photo, { status: 201 });
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[POST /api/sop/[id]/photos]", err);
     return NextResponse.json({ error: "Failed to upload photo" }, { status: 500 });
   }

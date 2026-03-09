@@ -14,10 +14,10 @@ export async function POST(
   try {
     const auth = await requireHouseholdRole();
 
-    const instance = await prisma.taskInstance.findUnique({ where: { id: params.id } });
+    const instance = await prisma.taskInstance.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
+    });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (instance.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     if (!instance.taskTemplateId)
       return NextResponse.json({ error: "Cannot skip a one-off task" }, { status: 400 });
 

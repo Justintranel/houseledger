@@ -24,10 +24,10 @@ export async function PATCH(
     if (auth.role !== "OWNER" && auth.role !== "FAMILY")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const video = await prisma.trainingVideo.findUnique({
-      where: { id: params.id },
+    const video = await prisma.trainingVideo.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
     });
-    if (!video || video.householdId !== auth.householdId)
+    if (!video)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
@@ -68,10 +68,10 @@ export async function DELETE(
     if (auth.role !== "OWNER" && auth.role !== "FAMILY")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const video = await prisma.trainingVideo.findUnique({
-      where: { id: params.id },
+    const video = await prisma.trainingVideo.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
     });
-    if (!video || video.householdId !== auth.householdId)
+    if (!video)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.trainingVideo.delete({ where: { id: params.id } });

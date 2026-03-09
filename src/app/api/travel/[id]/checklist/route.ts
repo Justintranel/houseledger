@@ -8,8 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function verifyTripOwnership(travelPlanId: string, householdId: string) {
-  const plan = await prisma.travelPlan.findUnique({ where: { id: travelPlanId } });
-  return plan && plan.householdId === householdId ? plan : null;
+  return prisma.travelPlan.findFirst({ where: { id: travelPlanId, householdId } });
 }
 
 export async function POST(
@@ -61,11 +60,10 @@ export async function PATCH(
     if (!parsed.success)
       return NextResponse.json({ error: parsed.error.errors[0]?.message ?? "Invalid input" }, { status: 400 });
 
-    const existing = await prisma.travelChecklistItem.findUnique({
-      where: { id: parsed.data.itemId },
-      include: { travelPlan: true },
+    const existing = await prisma.travelChecklistItem.findFirst({
+      where: { id: parsed.data.itemId, travelPlan: { householdId: auth.householdId } },
     });
-    if (!existing || existing.travelPlan.householdId !== auth.householdId)
+    if (!existing)
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
     const updated = await prisma.travelChecklistItem.update({
@@ -94,11 +92,10 @@ export async function DELETE(
     const itemId = searchParams.get("itemId");
     if (!itemId) return NextResponse.json({ error: "itemId required" }, { status: 400 });
 
-    const existing = await prisma.travelChecklistItem.findUnique({
-      where: { id: itemId },
-      include: { travelPlan: true },
+    const existing = await prisma.travelChecklistItem.findFirst({
+      where: { id: itemId, travelPlan: { householdId: auth.householdId } },
     });
-    if (!existing || existing.travelPlan.householdId !== auth.householdId)
+    if (!existing)
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
     await prisma.travelChecklistItem.delete({ where: { id: itemId } });

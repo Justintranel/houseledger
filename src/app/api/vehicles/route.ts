@@ -130,8 +130,10 @@ export async function PATCH(req: NextRequest) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message ?? "Invalid" }, { status: 400 });
 
     const { id, ...fields } = parsed.data;
-    const existing = await prisma.vehicle.findUnique({ where: { id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.vehicle.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const data: Record<string, unknown> = { ...fields };
@@ -159,8 +161,10 @@ export async function DELETE(req: NextRequest) {
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    const existing = await prisma.vehicle.findUnique({ where: { id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.vehicle.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.vehicle.delete({ where: { id } }); // cascades to serviceRecords + maintenanceItems

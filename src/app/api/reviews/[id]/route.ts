@@ -29,8 +29,15 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const auth = await requireHouseholdRole();
     const { id } = params;
 
-    const review = await prisma.performanceReview.findUnique({
-      where: { id },
+    // MANAGER: can only see their own SUBMITTED reviews.
+    // OWNER / FAMILY: any review in their household.
+    const whereClause =
+      auth.role === "MANAGER"
+        ? { id, revieweeId: auth.userId, status: "SUBMITTED" as const }
+        : { id, householdId: auth.householdId };
+
+    const review = await prisma.performanceReview.findFirst({
+      where: whereClause,
       include: {
         reviewee: { select: { id: true, name: true } },
         reviewer: { select: { id: true, name: true } },
@@ -40,18 +47,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     if (!review)
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
-
-    // MANAGER: can only see their own SUBMITTED reviews.
-    if (auth.role === "MANAGER") {
-      if (review.revieweeId !== auth.userId || review.status !== "SUBMITTED") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } else {
-      // OWNER / FAMILY: must belong to the same household.
-      if (review.householdId !== auth.householdId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
 
     return NextResponse.json(review);
   } catch (err) {
@@ -71,13 +66,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const { id } = params;
 
-    const review = await prisma.performanceReview.findUnique({ where: { id } });
+    const review = await prisma.performanceReview.findFirst({ where: { id, householdId: auth.householdId } });
 
     if (!review)
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
-
-    if (review.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (review.status !== "DRAFT")
       return NextResponse.json(
@@ -163,13 +155,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     const { id } = params;
 
-    const review = await prisma.performanceReview.findUnique({ where: { id } });
+    const review = await prisma.performanceReview.findFirst({ where: { id, householdId: auth.householdId } });
 
     if (!review)
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
-
-    if (review.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (review.status !== "DRAFT")
       return NextResponse.json(

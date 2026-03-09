@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
+import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
+import { can } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,44 +26,41 @@ const postSchema = z.object(vendorFields);
 const patchSchema = z.object({ id: z.string().min(1), ...vendorFields }).partial({ name: true });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
+    const auth = await requireHouseholdRole();
     const vendors = await prisma.vendor.findMany({
-      where: { householdId: session.user.householdId },
+      where: { householdId: auth.householdId },
       orderBy: [{ preferred: "desc" }, { name: "asc" }],
     });
     return NextResponse.json(vendors);
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[GET /api/vendors]", err);
     return NextResponse.json({ error: "Failed to load vendors" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = (session.user as any).role as string;
-  if (role !== "OWNER")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const hid = session.user.householdId;
-
   try {
+    const auth = await requireHouseholdRole();
+    if (!can(auth.role, "vendors:write"))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await req.json();
     const parsed = postSchema.safeParse(body);
     if (!parsed.success)
-      return NextResponse.json({ error: parsed.error.errors[0]?.message ?? "Invalid input" }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error.errors[0]?.message ?? "Invalid input" },
+        { status: 400 }
+      );
 
-    const { name, phone, email, website, address, license, type, category, notes, approvalLimit, preferred } = parsed.data;
+    const { name, phone, email, website, address, license, type, category, notes, approvalLimit, preferred } =
+      parsed.data;
 
     const vendor = await prisma.vendor.create({
       data: {
-        householdId: hid,
+        householdId: auth.householdId,
         name,
         phone: phone || null,
         email: email || null,
@@ -80,32 +77,33 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(vendor, { status: 201 });
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[POST /api/vendors]", err);
     return NextResponse.json({ error: "Failed to create vendor" }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = (session.user as any).role as string;
-  if (role !== "OWNER")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const hid = session.user.householdId;
-
   try {
+    const auth = await requireHouseholdRole();
+    if (!can(auth.role, "vendors:write"))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await req.json();
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success)
-      return NextResponse.json({ error: parsed.error.errors[0]?.message ?? "Invalid input" }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error.errors[0]?.message ?? "Invalid input" },
+        { status: 400 }
+      );
 
     const { id, ...fields } = parsed.data;
 
-    const vendor = await prisma.vendor.findUnique({ where: { id } });
-    if (!vendor || vendor.householdId !== hid)
+    const vendor = await prisma.vendor.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
+    if (!vendor)
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
 
     // Normalize empty strings to null
@@ -117,36 +115,43 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.vendor.update({ where: { id }, data });
     return NextResponse.json(updated);
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[PATCH /api/vendors]", err);
     return NextResponse.json({ error: "Failed to update vendor" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.householdId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = (session.user as any).role as string;
-  const userId = (session.user as any).id as string;
-  if (role !== "OWNER")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const hid = session.user.householdId;
-  const id = new URL(req.url).searchParams.get("id");
-  if (!id)
-    return NextResponse.json({ error: "Query param 'id' is required" }, { status: 400 });
-
   try {
-    const vendor = await prisma.vendor.findUnique({ where: { id } });
-    if (!vendor || vendor.householdId !== hid)
+    const auth = await requireHouseholdRole();
+    if (!can(auth.role, "vendors:write"))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id)
+      return NextResponse.json({ error: "Query param 'id' is required" }, { status: 400 });
+
+    const vendor = await prisma.vendor.findFirst({
+      where: { id, householdId: auth.householdId },
+    });
+    if (!vendor)
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
 
     await prisma.vendor.delete({ where: { id } });
-    await audit({ householdId: hid, userId, action: "DELETE", entityType: "Vendor", entityId: id, note: `Deleted vendor: ${vendor.name}` });
+    await audit({
+      householdId: auth.householdId,
+      userId: auth.userId,
+      action: "DELETE",
+      entityType: "Vendor",
+      entityId: id,
+      note: `Deleted vendor: ${vendor.name}`,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
     console.error("[DELETE /api/vendors]", err);
     return NextResponse.json({ error: "Failed to delete vendor" }, { status: 500 });
   }

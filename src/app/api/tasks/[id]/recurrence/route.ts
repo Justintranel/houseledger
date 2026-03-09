@@ -46,13 +46,11 @@ export async function PATCH(
       );
     }
 
-    const instance = await prisma.taskInstance.findUnique({
-      where: { id: params.id },
+    const instance = await prisma.taskInstance.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
       include: { taskTemplate: { include: { recurrenceRule: true } } },
     });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (instance.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     if (!instance.taskTemplateId || !instance.taskTemplate?.recurrenceRule) {
       return NextResponse.json({ error: "Task has no recurrence rule" }, { status: 400 });
     }

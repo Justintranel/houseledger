@@ -14,13 +14,11 @@ export async function GET(
 ) {
   try {
     const auth = await requireHouseholdRole();
-    const instance = await prisma.taskInstance.findUnique({
-      where: { id: params.id },
+    const instance = await prisma.taskInstance.findFirst({
+      where: { id: params.id, householdId: auth.householdId },
       include: taskInstanceInclude,
     });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (instance.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     return NextResponse.json(instance);
   } catch (err) {
     if (err instanceof AuthError)
@@ -58,10 +56,8 @@ export async function PATCH(
       );
     }
 
-    const instance = await prisma.taskInstance.findUnique({ where: { id: params.id } });
+    const instance = await prisma.taskInstance.findFirst({ where: { id: params.id, householdId: auth.householdId } });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (instance.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // MANAGER can only update status, not edit title/description
     if (

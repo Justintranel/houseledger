@@ -1,53 +1,132 @@
 /**
  * Storage abstraction — swap STORAGE_PROVIDER env var to change backend.
- * local: saves files to /uploads in project root (dev only)
- * s3:    uses S3-compatible API (add AWS SDK + env vars for production)
+ *
+ * STORAGE_PROVIDER=local  (default) — saves files to /uploads in project root (dev only)
+ * STORAGE_PROVIDER=s3               — uploads to AWS S3 using env vars:
+ *   AWS_ACCESS_KEY_ID
+ *   AWS_SECRET_ACCESS_KEY
+ *   AWS_REGION         (e.g. "us-east-1")
+ *   S3_BUCKET          (bucket name)
+ *   S3_PUBLIC_URL      (optional — custom CDN/CloudFront URL, e.g. "https://cdn.yourdomain.com")
+ *                       If omitted, falls back to standard S3 URL.
  */
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { v4 as uuid } from "uuid";
 
 export interface UploadResult {
-  url: string;
-  fileName: string;
-  fileSize: number;
+  url: string;       // public-accessible URL stored in the DB
+  fileName: string;  // original file name (for display)
+  fileSize: number;  // bytes
 }
+
+// ─── S3 helpers ───────────────────────────────────────────────────────────────
+
+function getS3PublicUrl(key: string): string {
+  if (process.env.S3_PUBLIC_URL) {
+    return `${process.env.S3_PUBLIC_URL.replace(/\/$/, "")}/${key}`;
+  }
+  return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+}
+
+async function uploadToS3(buffer: Buffer, key: string, mimeType: string): Promise<void> {
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+
+  const client = new S3Client({
+    region: process.env.AWS_REGION ?? "us-east-1",
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+      // Files are private by default — served via authenticated /api/files proxy or pre-signed URLs
+    }),
+  );
+}
+
+// ─── Main upload function ─────────────────────────────────────────────────────
 
 export async function uploadFile(
   buffer: Buffer,
   originalName: string,
-  _mimeType: string
+  mimeType: string,
 ): Promise<UploadResult> {
   const provider = process.env.STORAGE_PROVIDER || "local";
+  const ext = path.extname(originalName);
+  const key = `${uuid()}${ext}`;
 
   if (provider === "s3") {
-    // TODO: implement S3 upload using @aws-sdk/client-s3
-    // const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-    // const client = new S3Client({ region: process.env.AWS_REGION });
-    // ...
-    throw new Error("S3 storage not yet configured. Set STORAGE_PROVIDER=local for dev.");
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.S3_BUCKET) {
+      throw new Error(
+        "S3 is not fully configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, and S3_BUCKET.",
+      );
+    }
+
+    await uploadToS3(buffer, key, mimeType);
+
+    return {
+      url: getS3PublicUrl(key),
+      fileName: originalName,
+      fileSize: buffer.length,
+    };
   }
 
-  // ── Local storage ──────────────────────────────────────────────────────────
+  // ── Local storage (dev) ────────────────────────────────────────────────────
   const uploadsDir = path.join(process.cwd(), "uploads");
   await mkdir(uploadsDir, { recursive: true });
 
-  const ext = path.extname(originalName);
-  const fileName = `${uuid()}${ext}`;
-  const filePath = path.join(uploadsDir, fileName);
+  const filePath = path.join(uploadsDir, key);
   await writeFile(filePath, buffer);
 
   return {
-    url: `/api/files/${fileName}`,
+    url: `/api/files/${key}`,
     fileName: originalName,
     fileSize: buffer.length,
   };
 }
 
-export function getFileUrl(storedName: string): string {
+// ─── Delete a file ────────────────────────────────────────────────────────────
+
+export async function deleteFile(storedUrl: string): Promise<void> {
   const provider = process.env.STORAGE_PROVIDER || "local";
+
   if (provider === "s3") {
-    return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${storedName}`;
+    // Extract the key from the URL
+    const key = storedUrl.split("/").pop();
+    if (!key) return;
+
+    const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = new S3Client({
+      region: process.env.AWS_REGION ?? "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET!,
+        Key: key,
+      }),
+    );
+    return;
   }
-  return `/api/files/${storedName}`;
+
+  // Local: delete from uploads dir
+  const { unlink } = await import("fs/promises");
+  const fileName = storedUrl.replace("/api/files/", "");
+  const filePath = path.join(process.cwd(), "uploads", path.basename(fileName));
+  try {
+    await unlink(filePath);
+  } catch {
+    // File already gone — not an error
+  }
 }

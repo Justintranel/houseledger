@@ -23,11 +23,11 @@ export async function GET(
   const hid = session.user.householdId;
 
   try {
-    const sop = await prisma.houseSOP.findUnique({
-      where: { id: params.id },
+    const sop = await prisma.houseSOP.findFirst({
+      where: { id: params.id, householdId: hid },
       include: { photos: { orderBy: { sortOrder: "asc" } } },
     });
-    if (!sop || sop.householdId !== hid)
+    if (!sop)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(sop);
   } catch (err) {
@@ -57,8 +57,8 @@ export async function PATCH(
         { status: 400 }
       );
 
-    const existing = await prisma.houseSOP.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== hid)
+    const existing = await prisma.houseSOP.findFirst({ where: { id: params.id, householdId: hid } });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const updated = await prisma.houseSOP.update({
@@ -91,8 +91,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const existing = await prisma.houseSOP.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== hid)
+    const existing = await prisma.houseSOP.findFirst({ where: { id: params.id, householdId: hid } });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.houseSOP.delete({ where: { id: params.id } });

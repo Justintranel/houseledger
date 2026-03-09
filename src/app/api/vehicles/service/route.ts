@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
     const vehicleId = new URL(req.url).searchParams.get("vehicleId");
     if (!vehicleId) return NextResponse.json({ error: "vehicleId required" }, { status: 400 });
 
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
-    if (!vehicle || vehicle.householdId !== auth.householdId)
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, householdId: auth.householdId } });
+    if (!vehicle)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const records = await prisma.vehicleService.findMany({
@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
 
     const { vehicleId, serviceType, date, mileage, cost, notes, nextDueDate, nextDueMileage } = parsed.data;
 
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
-    if (!vehicle || vehicle.householdId !== auth.householdId)
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, householdId: auth.householdId } });
+    if (!vehicle)
       return NextResponse.json({ error: "Vehicle not found" }, { status: 404 });
 
     // Update vehicle mileage if this service entry has mileage
@@ -87,8 +87,10 @@ export async function DELETE(req: NextRequest) {
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    const record = await prisma.vehicleService.findUnique({ where: { id }, include: { vehicle: true } });
-    if (!record || record.vehicle.householdId !== auth.householdId)
+    const record = await prisma.vehicleService.findFirst({
+      where: { id, vehicle: { householdId: auth.householdId } },
+    });
+    if (!record)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.vehicleService.delete({ where: { id } });

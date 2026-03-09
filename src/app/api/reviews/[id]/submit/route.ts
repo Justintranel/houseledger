@@ -17,16 +17,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     const { id } = params;
 
-    const review = await prisma.performanceReview.findUnique({
-      where: { id },
+    const review = await prisma.performanceReview.findFirst({
+      where: { id, householdId: auth.householdId },
       include: { categoryScores: true },
     });
 
     if (!review)
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
-
-    if (review.householdId !== auth.householdId)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     if (review.status !== "DRAFT")
       return NextResponse.json(

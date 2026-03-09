@@ -25,8 +25,8 @@ export async function PATCH(
     if (!can(auth.role, "calendar:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const existing = await prisma.familyEvent.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.familyEvent.findFirst({ where: { id: params.id, householdId: auth.householdId } });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
@@ -62,8 +62,8 @@ export async function DELETE(
     if (!can(auth.role, "calendar:write"))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const existing = await prisma.familyEvent.findUnique({ where: { id: params.id } });
-    if (!existing || existing.householdId !== auth.householdId)
+    const existing = await prisma.familyEvent.findFirst({ where: { id: params.id, householdId: auth.householdId } });
+    if (!existing)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await prisma.familyEvent.delete({ where: { id: params.id } });

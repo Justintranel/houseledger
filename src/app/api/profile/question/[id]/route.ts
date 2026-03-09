@@ -24,16 +24,13 @@ export async function PATCH(
     if (typeof body.ownerOnly !== "boolean")
       return NextResponse.json({ error: "ownerOnly must be a boolean" }, { status: 400 });
 
-    const question = await prisma.houseProfileQuestion.findUnique({
-      where: { id: params.id },
+    // Only custom questions (householdId = hid) may be patched; built-ins have householdId = null.
+    const question = await prisma.houseProfileQuestion.findFirst({
+      where: { id: params.id, householdId: hid },
     });
 
     if (!question)
-      return NextResponse.json({ error: "Question not found" }, { status: 404 });
-
-    // Only custom questions belonging to this household may be patched
-    if (!question.householdId || question.householdId !== hid)
-      return NextResponse.json({ error: "Cannot modify a built-in question" }, { status: 403 });
+      return NextResponse.json({ error: "Question not found or cannot be modified" }, { status: 404 });
 
     const updated = await prisma.houseProfileQuestion.update({
       where: { id: params.id },
@@ -60,18 +57,15 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const question = await prisma.houseProfileQuestion.findUnique({
-      where: { id: params.id },
+    // Only allow deleting custom questions (householdId = hid); built-ins have householdId = null.
+    const question = await prisma.houseProfileQuestion.findFirst({
+      where: { id: params.id, householdId: hid },
     });
 
     if (!question)
-      return NextResponse.json({ error: "Question not found" }, { status: 404 });
-
-    // Only allow deleting custom questions (householdId !== null) for this household
-    if (!question.householdId || question.householdId !== hid)
       return NextResponse.json(
-        { error: "Cannot delete a built-in question" },
-        { status: 403 }
+        { error: "Question not found or cannot be deleted" },
+        { status: 404 }
       );
 
     // Delete answers first, then the question

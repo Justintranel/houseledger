@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
+import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,18 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { filename: string } }
 ) {
-  // Only serve files if STORAGE_PROVIDER=local
-  if (process.env.STORAGE_PROVIDER !== "local") {
+  // Require an authenticated household session — no anonymous file access.
+  try {
+    await requireHouseholdRole();
+  } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Only serve files if using local storage (default when STORAGE_PROVIDER is unset)
+  const storageProvider = process.env.STORAGE_PROVIDER || "local";
+  if (storageProvider !== "local") {
     return NextResponse.json(
       { error: "Local file serving is not enabled" },
       { status: 404 }
