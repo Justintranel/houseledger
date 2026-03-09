@@ -10,7 +10,17 @@ interface Worker {
   hourlyRateCents: number;
   isActive: boolean;
   rateId: string | null;
+  workerType?: string;
+  isTemporary?: boolean;
 }
+
+const WORKER_TYPE_LABELS: Record<string, string> = {
+  REGULAR:     "Regular",
+  HOUSE_SITTER: "House Sitter",
+  BABY_SITTER:  "Baby Sitter",
+  DOG_SITTER:   "Dog Sitter",
+  OTHER_TEMP:   "Other Temp",
+};
 
 interface Props {
   initialWorkers: Worker[];
@@ -102,6 +112,7 @@ export default function WorkersTable({ initialWorkers }: Props) {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Hourly Rate</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Active</th>
@@ -151,6 +162,17 @@ export default function WorkersTable({ initialWorkers }: Props) {
                           </svg>
                         </button>
                       </div>
+                    )}
+                  </td>
+
+                  {/* ── Worker type ── */}
+                  <td className="px-4 py-3">
+                    {w.isTemporary ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                        {WORKER_TYPE_LABELS[w.workerType ?? ""] ?? w.workerType}
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">Regular</span>
                     )}
                   </td>
 

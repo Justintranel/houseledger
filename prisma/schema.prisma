@@ -590,6 +590,8 @@ model WorkerRate {
   userId          String
   hourlyRateCents Int      @default(0) // rate in cents to avoid floats
   isActive        Boolean  @default(true)
+  workerType      String   @default("REGULAR") // REGULAR | HOUSE_SITTER | BABY_SITTER | DOG_SITTER | OTHER_TEMP
+  isTemporary     Boolean  @default(false)
   updatedByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

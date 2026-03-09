@@ -47,6 +47,8 @@ export async function GET(_req: NextRequest) {
       joinedAt: m.joinedAt,
       hourlyRateCents: rateMap.get(m.user.id)?.hourlyRateCents ?? 0,
       isActive: rateMap.get(m.user.id)?.isActive ?? true,
+      workerType: rateMap.get(m.user.id)?.workerType ?? "REGULAR",
+      isTemporary: rateMap.get(m.user.id)?.isTemporary ?? false,
       rateId: rateMap.get(m.user.id)?.id ?? null,
     }));
 
@@ -60,11 +62,15 @@ export async function GET(_req: NextRequest) {
   }
 }
 
+const WORKER_TYPES = ["REGULAR", "HOUSE_SITTER", "BABY_SITTER", "DOG_SITTER", "OTHER_TEMP"] as const;
+
 const inviteSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(100),
   role: z.enum(["MANAGER", "FAMILY"]).default("MANAGER"),
   hourlyRateCents: z.number().int().min(0).default(0),
+  workerType: z.enum(WORKER_TYPES).default("REGULAR"),
+  isTemporary: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -81,7 +87,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, name, role, hourlyRateCents } = parsed.data;
+    const { email, name, role, hourlyRateCents, workerType, isTemporary } = parsed.data;
 
     // Check if user already exists
     let user = await prisma.user.findUnique({ where: { email } });
@@ -124,9 +130,11 @@ export async function POST(req: NextRequest) {
         householdId: auth.householdId,
         userId: user.id,
         hourlyRateCents,
+        workerType,
+        isTemporary,
         updatedByUserId: auth.userId,
       },
-      update: { hourlyRateCents, updatedByUserId: auth.userId },
+      update: { hourlyRateCents, workerType, isTemporary, updatedByUserId: auth.userId },
     });
 
     await audit({

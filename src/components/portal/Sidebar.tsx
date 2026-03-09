@@ -59,7 +59,6 @@ const NAV_SECTIONS: NavSection[] = [
 const ADMIN_NAV = [
   { href: "/dashboard/settings",         icon: "⚙️", label: "Settings" },
   { href: "/dashboard/settings/workers", icon: "👥", label: "Workers & Rates" },
-  { href: "/dashboard/hire",             icon: "🤝", label: "Hire a House Manager" },
   { href: "/dashboard/billing",          icon: "💰", label: "Billing" },
 ];
 
@@ -98,6 +97,29 @@ export default function Sidebar({ role, householdName, flags }: Props) {
           {role === "MANAGER" ? "House Manager" : role === "OWNER" ? "Owner" : role === "FAMILY" ? "Family" : role}
         </span>
       </div>
+
+      {/* Quick links — Hire + Community (OWNER only, top of nav) */}
+      {role === "OWNER" && (
+        <div className="px-2 pb-1">
+          <div className="space-y-0.5">
+            <Link
+              href="/dashboard/hire"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/hire") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            >
+              <span className="text-base leading-none">🤝</span> Hire a House Manager
+            </Link>
+            <a
+              href="https://www.skool.com/thehouseledger"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition"
+            >
+              <span className="text-base leading-none">👩</span> Community
+            </a>
+          </div>
+          <div className="mx-3 border-t border-white/10 mt-2" />
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 px-2 pb-3">
@@ -173,7 +195,7 @@ export default function Sidebar({ role, householdName, flags }: Props) {
         )}
       </nav>
 
-      {/* Support + Community links */}
+      {/* Support link */}
       <div className="px-2 pb-2 border-t border-white/10 pt-3 space-y-0.5">
         <Link
           href="/dashboard/support"
@@ -181,16 +203,6 @@ export default function Sidebar({ role, householdName, flags }: Props) {
         >
           <span>🎫</span> Get Support
         </Link>
-        {role === "OWNER" && (
-          <a
-            href="https://www.skool.com/thehouseledger"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition"
-          >
-            <span>👩</span> Community
-          </a>
-        )}
       </div>
 
       {/* Sign out */}
