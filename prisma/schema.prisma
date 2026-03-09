@@ -548,9 +548,14 @@ model Vendor {
   name          String
   phone         String?
   email         String?
+  website       String?
+  address       String?
+  license       String?
   type          String?
+  category      String?
   notes         String?
   approvalLimit Float?
+  preferred     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
