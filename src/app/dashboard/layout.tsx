@@ -34,19 +34,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Managers and family members inherit the owner's subscription status.
   // Only the OWNER needs to act on billing issues.
   if (role === "OWNER" && household) {
-    const now = new Date();
-    const { accountStatus, stripeSubscriptionId, trialEndsAt } = household;
+    const { accountStatus, stripeSubscriptionId } = household;
 
     const isCanceled = accountStatus === "CANCELED" || accountStatus === "SUSPENDED";
-    const trialExpired =
-      !stripeSubscriptionId && (!trialEndsAt || trialEndsAt < now);
+    // No Stripe subscription means CC has never been collected — require payment
+    const needsPayment = !stripeSubscriptionId;
 
     // Read the current pathname via Next.js headers (set by middleware)
     const headersList = headers();
     const pathname = headersList.get("x-invoke-path") ?? "";
     const onBillingPage = pathname.startsWith("/dashboard/billing") || pathname === "";
 
-    if ((isCanceled || trialExpired) && !onBillingPage) {
+    if ((isCanceled || needsPayment) && !onBillingPage) {
       redirect("/dashboard/billing");
     }
   }
@@ -61,7 +60,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     if (
       accountStatus === "TRIALING" &&
-      !stripeSubscriptionId &&
       trialEndsAt &&
       trialEndsAt > now
     ) {

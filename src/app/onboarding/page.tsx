@@ -146,8 +146,15 @@ export default function OnboardingPage() {
 
       setDone(true);
 
-      // Brief celebration → then navigate to billing to start free trial
-      setTimeout(() => router.push("/dashboard/billing?welcome=1"), 2200);
+      // Go straight to Stripe checkout so CC is captured before dashboard access
+      const checkoutRes = await fetch("/api/stripe/checkout", { method: "POST" });
+      const checkoutData = await checkoutRes.json();
+      if (checkoutRes.ok && checkoutData.url) {
+        window.location.href = checkoutData.url;
+      } else {
+        // Stripe unavailable — fall back to the billing page
+        router.push("/dashboard/billing?welcome=1");
+      }
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
     } finally {
@@ -166,7 +173,10 @@ export default function OnboardingPage() {
             {householdName} is all set!
           </h1>
           <p className="text-white/60 text-lg">
-            Starting your 7-day free trial…
+            Redirecting to secure payment setup…
+          </p>
+          <p className="text-white/40 text-sm mt-2">
+            Your card won&apos;t be charged during the 7-day trial.
           </p>
         </div>
       </main>
