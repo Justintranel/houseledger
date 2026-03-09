@@ -44,6 +44,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/calendar",   icon: "📅",  label: "Family Calendar",    flag: null,          roles: null },
       { href: "/dashboard/reviews",           icon: "⭐", label: "Performance Reviews", flag: null, roles: ["OWNER", "FAMILY"] },
       { href: "/dashboard/reviews/my-reviews", icon: "⭐", label: "Performance Reviews", flag: null, roles: ["MANAGER"] },
+      { href: "/dashboard/payroll",            icon: "💸", label: "Payroll",              flag: null, roles: ["OWNER"] },
     ],
   },
   {
