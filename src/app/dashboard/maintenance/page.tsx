@@ -8,6 +8,7 @@ import { format, differenceInDays, addDays } from "date-fns";
 
 interface MaintenanceItem {
   id: string;
+  vehicleId: string | null;
   title: string;
   category: string;
   intervalDays: number | null;
@@ -42,39 +43,83 @@ interface Vehicle {
   insuranceExpiry: string | null;
   notes: string | null;
   serviceRecords: VehicleService[];
+  maintenanceItems: MaintenanceItem[];
 }
 
-// ── Maintenance categories + defaults ─────────────────────────────────────────
+// ── House Maintenance categories + defaults ────────────────────────────────────
 
 const MAINTENANCE_CATEGORIES = [
   "HVAC", "Plumbing", "Electrical", "Safety", "Appliances",
   "Exterior", "Pest Control", "Filters & Water", "Other",
 ];
 
-const DEFAULT_MAINTENANCE: { title: string; category: string; intervalDays: number }[] = [
-  { title: "HVAC Filter Replacement",       category: "HVAC",             intervalDays: 90  },
-  { title: "HVAC Annual Service",           category: "HVAC",             intervalDays: 365 },
-  { title: "Smoke Detector Test",           category: "Safety",           intervalDays: 30  },
-  { title: "Smoke Detector Battery",        category: "Safety",           intervalDays: 365 },
-  { title: "Carbon Monoxide Detector Test", category: "Safety",           intervalDays: 30  },
-  { title: "Fire Extinguisher Check",       category: "Safety",           intervalDays: 365 },
-  { title: "Water Heater Flush",            category: "Plumbing",         intervalDays: 365 },
-  { title: "Dryer Vent Cleaning",           category: "Appliances",       intervalDays: 365 },
-  { title: "Refrigerator Coil Cleaning",    category: "Appliances",       intervalDays: 180 },
-  { title: "Dishwasher Filter Cleaning",    category: "Appliances",       intervalDays: 30  },
-  { title: "Garbage Disposal Cleaning",     category: "Appliances",       intervalDays: 90  },
-  { title: "Water Filter Replacement",      category: "Filters & Water",  intervalDays: 180 },
-  { title: "Water Softener Salt",           category: "Filters & Water",  intervalDays: 60  },
-  { title: "Gutter Cleaning",              category: "Exterior",         intervalDays: 180 },
-  { title: "Window Washing",               category: "Exterior",         intervalDays: 90  },
-  { title: "Pest Control Treatment",        category: "Pest Control",     intervalDays: 90  },
-  { title: "GFCI Outlet Test",             category: "Electrical",       intervalDays: 180 },
-  { title: "Whole-Home Surge Protector",    category: "Electrical",       intervalDays: 365 },
-  { title: "Grout & Caulk Inspection",     category: "Plumbing",         intervalDays: 365 },
-  { title: "Sump Pump Test",               category: "Plumbing",         intervalDays: 180 },
+const DEFAULT_MAINTENANCE: { title: string; category: string; intervalDays: number; notes: string }[] = [
+  // HVAC
+  { title: "HVAC Filter Replacement",          category: "HVAC",            intervalDays: 90,  notes: "1-inch filters: every 1–3 months. Thicker 4–5\" media filters: every 6–12 months. Check filter size on the filter frame." },
+  { title: "HVAC Annual Tune-Up",              category: "HVAC",            intervalDays: 365, notes: "Schedule professional service each spring (AC) and fall (heating). Includes coil cleaning, refrigerant check, and efficiency test." },
+  { title: "AC Pre-Season Check",              category: "HVAC",            intervalDays: 365, notes: "Before summer: clear debris from outdoor condenser unit, check refrigerant, test thermostat. Run AC for 15 min to ensure cooling." },
+  { title: "Furnace Pre-Season Check",         category: "HVAC",            intervalDays: 365, notes: "Before winter: test heat, inspect heat exchanger for cracks, clean burners, check pilot light or igniter." },
+  { title: "Thermostat Battery",               category: "HVAC",            intervalDays: 365, notes: "Replace thermostat batteries annually even if it shows no warning. Low batteries cause erratic temperature control." },
+  { title: "Humidifier Filter / Pad",          category: "HVAC",            intervalDays: 365, notes: "Replace whole-house humidifier water panel/evaporator pad at start of heating season (fall). Prevents mineral buildup and mold." },
+  { title: "Ductwork Inspection",              category: "HVAC",            intervalDays: 730, notes: "Every 2 years: check for disconnected, leaking, or crushed ducts in attic and crawlspace. Leaky ducts reduce efficiency by 20–30%." },
+  // Safety
+  { title: "Smoke Detector Test",              category: "Safety",          intervalDays: 30,  notes: "Press the test button on each detector monthly. Replace any that don't alarm. Keep detectors within 10 ft of every sleeping area." },
+  { title: "Smoke Detector Battery",           category: "Safety",          intervalDays: 365, notes: "Replace batteries every January (or when it chirps). 10-year sealed-battery detectors exist — check your model." },
+  { title: "Carbon Monoxide Detector Test",    category: "Safety",          intervalDays: 30,  notes: "Test CO detectors monthly. Place one on every floor and near sleeping areas. CO detectors expire every 5–7 years." },
+  { title: "CO Detector Replacement",          category: "Safety",          intervalDays: 1825,notes: "Replace CO detectors every 5–7 years. Check manufacture date on the back. Electrochemical sensors degrade over time." },
+  { title: "Fire Extinguisher Inspection",     category: "Safety",          intervalDays: 365, notes: "Verify pressure gauge is in green zone, pull pin is intact, and nozzle is clear. Keep one in kitchen, garage, and each floor." },
+  { title: "Fire Extinguisher Recharge",       category: "Safety",          intervalDays: 1825,notes: "Professional hydrostatic test every 5–6 years depending on type. Recharge immediately after any use, even partial." },
+  { title: "First Aid Kit Restock",            category: "Safety",          intervalDays: 365, notes: "Check for expired medications, replace used supplies. Stock: bandages, antiseptic, gauze, medical tape, gloves, tweezers, thermometer." },
+  { title: "Earthquake / Storm Prep Check",    category: "Safety",          intervalDays: 365, notes: "Rotate emergency water (1 gal/person/day for 3 days), food supplies, flashlights, batteries, and document copies annually." },
+  // Plumbing
+  { title: "Water Heater Flush",               category: "Plumbing",        intervalDays: 365, notes: "Drain 1–2 gallons from the bottom valve to remove sediment. Prolongs life significantly. Do more often with hard water." },
+  { title: "Water Heater Anode Rod",           category: "Plumbing",        intervalDays: 730, notes: "Inspect the sacrificial anode rod every 2 years. Replace when corroded down to wire core. Extends tank life by 5–10 years." },
+  { title: "Sump Pump Test",                   category: "Plumbing",        intervalDays: 180, notes: "Pour a bucket of water into the sump pit to confirm the pump activates and drains properly. Test before rainy season." },
+  { title: "Drain Cleaning",                   category: "Plumbing",        intervalDays: 180, notes: "Clear hair and debris from bathroom drains every 6 months. Use a drain snake or enzymatic cleaner — avoid harsh chemical drain openers." },
+  { title: "Toilet Flapper & Fill Valve",      category: "Plumbing",        intervalDays: 730, notes: "Add food coloring to tank; if color appears in bowl without flushing, the flapper leaks. A running toilet wastes 200+ gallons/day." },
+  { title: "Outdoor Faucet Winterize",         category: "Plumbing",        intervalDays: 365, notes: "Before first freeze: disconnect hoses, shut off exterior faucet valves inside, drain and store hoses. Prevents pipe bursts." },
+  { title: "Water Main Location Check",        category: "Plumbing",        intervalDays: 1825,notes: "Every 5 years: verify all household members know where the water main shutoff is. Mark it clearly. Critical for emergency leaks." },
+  { title: "Caulk & Grout Inspection",         category: "Plumbing",        intervalDays: 365, notes: "Check caulk around tubs, showers, sinks, and toilets annually. Recaulk any cracked or missing sections to prevent water damage." },
+  // Electrical
+  { title: "GFCI Outlet Test",                 category: "Electrical",      intervalDays: 180, notes: "Press TEST button (should trip) then RESET on all GFCI outlets — bathrooms, kitchen, garage, exterior, basement. Replace if faulty." },
+  { title: "Breaker Panel Inspection",         category: "Electrical",      intervalDays: 365, notes: "Visually inspect for tripped breakers, corrosion, or burn marks. Label unlabeled breakers. Schedule electrician if anything looks off." },
+  { title: "Whole-Home Surge Protector",       category: "Electrical",      intervalDays: 365, notes: "Check status light on panel-mounted surge protector annually. Lightning and utility surges destroy electronics — replace after major events." },
+  { title: "Generator Test Run",               category: "Electrical",      intervalDays: 90,  notes: "Run generator under load for 30 minutes every 3 months. Check oil level before each start. Keep fresh fuel with stabilizer." },
+  { title: "Smoke & CO Wiring Check",          category: "Electrical",      intervalDays: 365, notes: "For hardwired detectors: test each unit and verify interconnect (when one triggers, all should sound). Check backup batteries." },
+  { title: "Exterior Lighting Inspection",     category: "Electrical",      intervalDays: 90,  notes: "Replace burnt bulbs, clean fixtures, check motion sensors. Ensure pathway lights and security lights work properly." },
+  // Appliances
+  { title: "Dryer Vent Cleaning",              category: "Appliances",      intervalDays: 365, notes: "Clean the entire duct from dryer to exterior vent annually. Lint buildup is the #1 cause of house fires. Hire a pro if duct is long or has bends." },
+  { title: "Refrigerator Coil Cleaning",       category: "Appliances",      intervalDays: 180, notes: "Vacuum condenser coils (usually behind kickplate or on the back) every 6 months. Dirty coils reduce efficiency and lifespan." },
+  { title: "Dishwasher Filter & Spray Arms",   category: "Appliances",      intervalDays: 30,  notes: "Remove and rinse the filter monthly. Clear debris from spray arm holes with a toothpick. Run an empty cycle with white vinegar quarterly." },
+  { title: "Garbage Disposal Cleaning",        category: "Appliances",      intervalDays: 30,  notes: "Monthly: grind ice cubes + salt, then flush with cold water. Quarterly: run half lemon through unit. Never put fibrous foods or grease in." },
+  { title: "Oven Cleaning & Inspection",       category: "Appliances",      intervalDays: 90,  notes: "Clean oven interior and check door seal every 3 months. Check gas burner igniters for debris (yellow flame = dirty burner)." },
+  { title: "Washing Machine Drum Clean",       category: "Appliances",      intervalDays: 30,  notes: "Run a hot empty cycle with washing machine cleaner or 2 cups white vinegar monthly. Leave door open after use to prevent mold." },
+  { title: "Range Hood Filter",                category: "Appliances",      intervalDays: 90,  notes: "Remove and soak metal mesh filters in hot soapy water or dishwasher every 3 months. Replace charcoal filters annually (ductless only)." },
+  { title: "HVAC Humidifier Reservoir Clean",  category: "Appliances",      intervalDays: 90,  notes: "Clean humidifier reservoir and float valve to prevent mold and mineral scale. Use white vinegar solution." },
+  // Exterior
+  { title: "Gutter Cleaning",                  category: "Exterior",        intervalDays: 180, notes: "Clean gutters spring and fall. Clogged gutters cause foundation damage and roof rot. Check downspouts discharge away from foundation." },
+  { title: "Roof Inspection",                  category: "Exterior",        intervalDays: 365, notes: "Inspect from ground after storms. Look for missing shingles, lifted flashing, and moss growth. Hire pro every 3–5 years for detailed inspection." },
+  { title: "Window & Door Weatherstripping",   category: "Exterior",        intervalDays: 365, notes: "Check weatherstripping on all exterior doors and windows annually. Replace if cracked or compressed. Improves energy efficiency 10–20%." },
+  { title: "Driveway & Walkway Inspection",    category: "Exterior",        intervalDays: 365, notes: "Check for cracks and settlement. Seal asphalt every 2–3 years. Fill concrete cracks with polyurethane before winter to prevent freeze damage." },
+  { title: "Deck / Patio Inspection",          category: "Exterior",        intervalDays: 365, notes: "Check for loose boards, railing stability, and wood rot. Stain/seal wood decks every 2–3 years. Inspect ledger board attachment to house." },
+  { title: "Exterior Paint / Siding Inspection", category: "Exterior",      intervalDays: 365, notes: "Look for peeling paint, cracked caulk, and damaged siding annually. Repaint wood siding every 5–7 years to prevent rot." },
+  { title: "Window Washing",                   category: "Exterior",        intervalDays: 180, notes: "Clean exterior windows twice yearly. Check glazing compound on older single-pane windows. Look for failed seals on double-pane (fogging)." },
+  { title: "Sprinkler System Inspection",      category: "Exterior",        intervalDays: 365, notes: "Test each zone at start of season. Adjust head positions to avoid watering structures. Winterize before first freeze in cold climates." },
+  // Pest Control
+  { title: "Pest Control Treatment",           category: "Pest Control",    intervalDays: 90,  notes: "Quarterly exterior spray creates a barrier around the foundation, windows, and doors. Treats ants, spiders, roaches, and general insects." },
+  { title: "Termite Inspection",               category: "Pest Control",    intervalDays: 365, notes: "Annual inspection by licensed pest control company. Termites cause $5B in damage annually in the US. Look for mud tubes and hollow wood." },
+  { title: "Rodent Entry Point Audit",         category: "Pest Control",    intervalDays: 365, notes: "Inspect exterior foundation, utility penetrations, and roof vents for gaps. Mice enter through 1/4\" gaps. Seal with steel wool and caulk." },
+  { title: "Mosquito / Tick Treatment",        category: "Pest Control",    intervalDays: 90,  notes: "Spray property perimeter and standing water areas in spring and summer. Eliminate standing water sources (pots, gutters, birdbaths)." },
+  // Filters & Water
+  { title: "Water Filter Replacement",         category: "Filters & Water", intervalDays: 180, notes: "Under-sink filters: every 6 months. Whole-house sediment filters: monthly inspection. Reverse osmosis membrane: every 2–3 years." },
+  { title: "Water Softener Salt",              category: "Filters & Water", intervalDays: 60,  notes: "Check salt level every 6–8 weeks. Keep salt at least half-full. Clean brine tank annually. Iron-Out treatment helps with iron buildup." },
+  { title: "Reverse Osmosis Membrane",         category: "Filters & Water", intervalDays: 730, notes: "Replace RO membrane every 2–3 years. Pre-filters (sediment/carbon) every 6–12 months. Check system pressure and flow rate annually." },
+  { title: "Pool / Spa Water Chemistry",       category: "Filters & Water", intervalDays: 7,   notes: "Test pH, chlorine, alkalinity, and calcium hardness weekly when in use. Shock pool after heavy use or rain. Winterize before freezing temps." },
+  { title: "Ice Maker Filter",                 category: "Filters & Water", intervalDays: 180, notes: "Replace refrigerator water filter (ice maker / water dispenser) every 6 months. Reduces chlorine, sediment, and taste/odor issues." },
+  { title: "Hot Water Heater Temperature",     category: "Filters & Water", intervalDays: 365, notes: "Verify temperature is set to 120°F — hot enough to prevent Legionella bacteria, cool enough to prevent scalding." },
 ];
 
-// ── Vehicle service types ──────────────────────────────────────────────────────
+// ── Vehicle service types (for log service dropdown) ──────────────────────────
 
 const SERVICE_TYPES = [
   "Oil Change", "Tire Rotation", "Tire Replacement",
@@ -83,6 +128,7 @@ const SERVICE_TYPES = [
   "Transmission Service", "Battery Replacement", "Spark Plugs",
   "Alignment", "Wheel Balance", "Windshield Wipers",
   "State Inspection", "Emissions Test", "Registration Renewal",
+  "Fuel System Cleaning", "Serpentine Belt", "AC Service",
   "Detailing", "Other",
 ];
 
@@ -105,12 +151,12 @@ function statusColor(status: ReturnType<typeof dueStatus>) {
   if (status === "overdue") return "text-red-600 bg-red-50 border-red-200";
   if (status === "soon") return "text-amber-600 bg-amber-50 border-amber-200";
   if (status === "ok") return "text-green-600 bg-green-50 border-green-200";
-  return "text-slate-500 bg-slate-50 border-slate-200";
+  return "text-slate-400 bg-slate-50 border-slate-100";
 }
 
 function statusLabel(item: MaintenanceItem) {
   const days = daysUntilDue(item);
-  if (days === null) return item.lastDoneAt ? `Last: ${format(new Date(item.lastDoneAt), "MMM d, yyyy")}` : "Not tracked";
+  if (days === null) return item.lastDoneAt ? `Last: ${format(new Date(item.lastDoneAt), "MMM d, yyyy")}` : "Not started";
   if (days < 0) return `${Math.abs(days)}d overdue`;
   if (days === 0) return "Due today";
   return `Due in ${days}d`;
@@ -125,35 +171,36 @@ function expiryStatus(dateStr: string | null): "expired" | "soon" | "ok" | null 
 }
 
 function expiryColor(status: ReturnType<typeof expiryStatus>) {
-  if (status === "expired") return "text-red-600";
-  if (status === "soon") return "text-amber-600";
+  if (status === "expired") return "text-red-600 font-semibold";
+  if (status === "soon") return "text-amber-600 font-semibold";
   if (status === "ok") return "text-green-600";
   return "text-slate-400";
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function MaintenancePage() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role as string | undefined;
+  const canEdit = role === "OWNER" || role === "MANAGER";
 
   const [tab, setTab] = useState<"house" | "vehicles">("house");
 
-  // ── House Maintenance State ──
+  // ── House state ──
   const [items, setItems] = useState<MaintenanceItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [filterCategory, setFilterCategory] = useState("All");
   const [showItemModal, setShowItemModal] = useState(false);
   const [editItem, setEditItem] = useState<MaintenanceItem | null>(null);
-  const [itemForm, setItemForm] = useState({
-    title: "", category: "", intervalDays: "", notes: "", lastDoneAt: "",
-  });
+  const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
+  const [itemForm, setItemForm] = useState({ title: "", category: "", intervalDays: "", notes: "", lastDoneAt: "" });
   const [itemSubmitting, setItemSubmitting] = useState(false);
   const [itemError, setItemError] = useState("");
 
-  // ── Vehicles State ──
+  // ── Vehicle state ──
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loadingVehicles, setLoadingVehicles] = useState(true);
+  const [vehicleTab, setVehicleTab] = useState<Record<string, "schedule" | "history">>({});
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [vehicleForm, setVehicleForm] = useState({
@@ -163,20 +210,15 @@ export default function MaintenancePage() {
   });
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
   const [vehicleError, setVehicleError] = useState("");
-
-  // Service record state
   const [serviceVehicle, setServiceVehicle] = useState<Vehicle | null>(null);
   const [showServiceModal, setShowServiceModal] = useState(false);
-  const [serviceForm, setServiceForm] = useState({
-    serviceType: "", date: format(new Date(), "yyyy-MM-dd"), mileage: "",
-    cost: "", notes: "", nextDueDate: "", nextDueMileage: "",
-  });
+  const [serviceForm, setServiceForm] = useState({ serviceType: "", date: format(new Date(), "yyyy-MM-dd"), mileage: "", cost: "", notes: "", nextDueDate: "", nextDueMileage: "" });
   const [serviceSubmitting, setServiceSubmitting] = useState(false);
   const [serviceError, setServiceError] = useState("");
 
-  // ── Fetch maintenance items ──
+  // ── Fetch house items ──
   const fetchItems = useCallback(async () => {
-    const res = await fetch("/api/maintenance");
+    const res = await fetch("/api/maintenance?vehicleId=null");
     if (res.ok) setItems(await res.json());
   }, []);
 
@@ -185,11 +227,10 @@ export default function MaintenancePage() {
     async function initItems() {
       setLoadingItems(true);
       try {
-        const res = await fetch("/api/maintenance");
+        const res = await fetch("/api/maintenance?vehicleId=null");
         if (!res.ok) return;
         const data: MaintenanceItem[] = await res.json();
-        if (role === "OWNER" || role === "MANAGER") {
-          // Seed missing defaults
+        if (canEdit) {
           const existingTitles = new Set(data.map((i) => i.title));
           const missing = DEFAULT_MAINTENANCE.filter((d) => !existingTitles.has(d.title));
           if (missing.length > 0) {
@@ -197,7 +238,7 @@ export default function MaintenancePage() {
               await fetch("/api/maintenance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(d),
+                body: JSON.stringify({ ...d, vehicleId: null }),
               });
             }
             await fetchItems();
@@ -212,7 +253,7 @@ export default function MaintenancePage() {
       }
     }
     initItems();
-  }, [role, fetchItems]);
+  }, [role, canEdit, fetchItems]);
 
   // ── Fetch vehicles ──
   const fetchVehicles = useCallback(async () => {
@@ -226,21 +267,19 @@ export default function MaintenancePage() {
     fetchVehicles().finally(() => setLoadingVehicles(false));
   }, [role, fetchVehicles]);
 
-  // ── Mark maintenance item as done ──
+  // ── Mark done ──
   async function markDone(item: MaintenanceItem) {
     const now = new Date().toISOString();
-    const nextDue = item.intervalDays
-      ? addDays(new Date(), item.intervalDays).toISOString()
-      : null;
+    const nextDue = item.intervalDays ? addDays(new Date(), item.intervalDays).toISOString() : null;
     await fetch("/api/maintenance", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: item.id, lastDoneAt: now, nextDueAt: nextDue }),
     });
-    fetchItems();
+    if (item.vehicleId) fetchVehicles(); else fetchItems();
   }
 
-  // ── Maintenance form ──
+  // ── House item form ──
   function openAddItem() {
     setEditItem(null);
     setItemForm({ title: "", category: "", intervalDays: "", notes: "", lastDoneAt: "" });
@@ -250,8 +289,7 @@ export default function MaintenancePage() {
   function openEditItem(item: MaintenanceItem) {
     setEditItem(item);
     setItemForm({
-      title: item.title,
-      category: item.category,
+      title: item.title, category: item.category,
       intervalDays: item.intervalDays?.toString() ?? "",
       notes: item.notes ?? "",
       lastDoneAt: item.lastDoneAt ? format(new Date(item.lastDoneAt), "yyyy-MM-dd") : "",
@@ -266,20 +304,14 @@ export default function MaintenancePage() {
     try {
       const intervalDays = itemForm.intervalDays ? parseInt(itemForm.intervalDays) : undefined;
       const lastDoneAt = itemForm.lastDoneAt ? new Date(itemForm.lastDoneAt).toISOString() : undefined;
-      const nextDueAt = lastDoneAt && intervalDays
-        ? addDays(new Date(lastDoneAt), intervalDays).toISOString()
-        : undefined;
-
+      const nextDueAt = lastDoneAt && intervalDays ? addDays(new Date(lastDoneAt), intervalDays).toISOString() : undefined;
       const body: Record<string, unknown> = {
-        title: itemForm.title.trim(),
-        category: itemForm.category || "Other",
-        intervalDays: intervalDays ?? null,
-        lastDoneAt: lastDoneAt ?? null,
-        nextDueAt: nextDueAt ?? null,
-        notes: itemForm.notes || null,
+        title: itemForm.title.trim(), category: itemForm.category || "Other",
+        vehicleId: null,
+        intervalDays: intervalDays ?? null, lastDoneAt: lastDoneAt ?? null,
+        nextDueAt: nextDueAt ?? null, notes: itemForm.notes || null,
       };
       if (editItem) body.id = editItem.id;
-
       const res = await fetch("/api/maintenance", {
         method: editItem ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,8 +337,7 @@ export default function MaintenancePage() {
   function openEditVehicle(v: Vehicle) {
     setEditVehicle(v);
     setVehicleForm({
-      nickname: v.nickname ?? "",
-      make: v.make, model: v.model, year: v.year.toString(),
+      nickname: v.nickname ?? "", make: v.make, model: v.model, year: v.year.toString(),
       color: v.color ?? "", licensePlate: v.licensePlate ?? "", vin: v.vin ?? "",
       currentMileage: v.currentMileage?.toString() ?? "",
       registrationExpiry: v.registrationExpiry ? format(new Date(v.registrationExpiry), "yyyy-MM-dd") : "",
@@ -322,20 +353,15 @@ export default function MaintenancePage() {
     setVehicleSubmitting(true);
     try {
       const body: Record<string, unknown> = {
-        nickname: vehicleForm.nickname || null,
-        make: vehicleForm.make.trim(),
-        model: vehicleForm.model.trim(),
-        year: parseInt(vehicleForm.year),
-        color: vehicleForm.color || null,
-        licensePlate: vehicleForm.licensePlate || null,
-        vin: vehicleForm.vin || null,
+        nickname: vehicleForm.nickname || null, make: vehicleForm.make.trim(), model: vehicleForm.model.trim(),
+        year: parseInt(vehicleForm.year), color: vehicleForm.color || null,
+        licensePlate: vehicleForm.licensePlate || null, vin: vehicleForm.vin || null,
         currentMileage: vehicleForm.currentMileage ? parseInt(vehicleForm.currentMileage) : null,
         registrationExpiry: vehicleForm.registrationExpiry ? new Date(vehicleForm.registrationExpiry).toISOString() : null,
         insuranceExpiry: vehicleForm.insuranceExpiry ? new Date(vehicleForm.insuranceExpiry).toISOString() : null,
         notes: vehicleForm.notes || null,
       };
       if (editVehicle) body.id = editVehicle.id;
-
       const res = await fetch("/api/vehicles", {
         method: editVehicle ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,12 +372,12 @@ export default function MaintenancePage() {
     } finally { setVehicleSubmitting(false); }
   }
   async function deleteVehicle(id: string) {
-    if (!confirm("Delete this vehicle and all its service records?")) return;
+    if (!confirm("Delete this vehicle and all its records?")) return;
     await fetch(`/api/vehicles?id=${id}`, { method: "DELETE" });
     fetchVehicles();
   }
 
-  // ── Service record form ──
+  // ── Service form ──
   function openServiceModal(v: Vehicle) {
     setServiceVehicle(v);
     setServiceForm({ serviceType: "", date: format(new Date(), "yyyy-MM-dd"), mileage: v.currentMileage?.toString() ?? "", cost: "", notes: "", nextDueDate: "", nextDueMileage: "" });
@@ -387,12 +413,11 @@ export default function MaintenancePage() {
     fetchVehicles();
   }
 
-  // ── Filtered items ──
-  const filteredItems = items.filter(
-    (i) => filterCategory === "All" || i.category === filterCategory
-  );
-  const overdueCount = items.filter((i) => dueStatus(i) === "overdue").length;
-  const soonCount = items.filter((i) => dueStatus(i) === "soon").length;
+  // ── Filtered house items ──
+  const houseItems = items.filter((i) => !i.vehicleId);
+  const filtered = houseItems.filter((i) => filterCategory === "All" || i.category === filterCategory);
+  const overdueCount = houseItems.filter((i) => dueStatus(i) === "overdue").length;
+  const soonCount = houseItems.filter((i) => dueStatus(i) === "soon").length;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -406,17 +431,15 @@ export default function MaintenancePage() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Main tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-6">
         {(["house", "vehicles"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition ${
-              tab === t ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
-            }`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition ${tab === t ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
           >
-            {t === "house" ? "🏠 House Maintenance" : "🚗 Vehicles"}
+            {t === "house" ? "🏠 House" : "🚗 Vehicles"}
             {t === "house" && overdueCount > 0 && (
               <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{overdueCount}</span>
             )}
@@ -424,91 +447,80 @@ export default function MaintenancePage() {
         ))}
       </div>
 
-      {/* ── House Maintenance Tab ── */}
+      {/* ── HOUSE TAB ── */}
       {tab === "house" && (
         <div>
-          {/* Summary pills */}
           {(overdueCount > 0 || soonCount > 0) && (
             <div className="flex gap-3 mb-5">
-              {overdueCount > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">
-                  🔴 {overdueCount} overdue
-                </div>
-              )}
-              {soonCount > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 font-medium">
-                  🟡 {soonCount} due soon
-                </div>
-              )}
+              {overdueCount > 0 && <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">🔴 {overdueCount} overdue</div>}
+              {soonCount > 0 && <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 font-medium">🟡 {soonCount} due soon</div>}
             </div>
           )}
 
-          {/* Category filter + Add */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
             <div className="flex flex-wrap gap-2">
               {["All", ...MAINTENANCE_CATEGORIES].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setFilterCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
-                    filterCategory === cat ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${filterCategory === cat ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                 >
-                  {cat} {cat === "All" ? `(${items.length})` : `(${items.filter((i) => i.category === cat).length})`}
+                  {cat} {cat === "All" ? `(${houseItems.length})` : `(${houseItems.filter((i) => i.category === cat).length})`}
                 </button>
               ))}
             </div>
-            {(role === "OWNER" || role === "MANAGER") && (
-              <button onClick={openAddItem} className="btn-primary text-sm shrink-0">+ Add Item</button>
-            )}
+            {canEdit && <button onClick={openAddItem} className="btn-primary text-sm shrink-0">+ Add Item</button>}
           </div>
 
           {loadingItems ? (
-            <div className="flex justify-center py-16">
-              <div className="animate-spin h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="card text-center py-16 text-slate-400">
-              <p className="text-4xl mb-2">🔧</p>
-              <p>No maintenance items yet.</p>
-            </div>
+            <div className="flex justify-center py-16"><div className="animate-spin h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="card text-center py-16 text-slate-400"><p className="text-4xl mb-2">🔧</p><p>No maintenance items yet.</p></div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredItems.map((item) => {
+              {filtered.map((item) => {
                 const status = dueStatus(item);
                 const color = statusColor(status);
+                const isExpanded = expandedNotes === item.id;
                 return (
-                  <div key={item.id} className={`rounded-xl border p-4 bg-white shadow-sm ${status === "overdue" ? "border-red-200" : status === "soon" ? "border-amber-200" : "border-slate-200"}`}>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-900 text-sm leading-tight">{item.title}</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">{item.category}</p>
+                  <div key={item.id} className={`rounded-xl border bg-white shadow-sm flex flex-col ${status === "overdue" ? "border-red-200" : status === "soon" ? "border-amber-200" : "border-slate-200"}`}>
+                    <div className="p-4 flex-1">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-slate-900 text-sm leading-tight">{item.title}</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">{item.category}</p>
+                        </div>
+                        <span className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-full border ${color}`}>
+                          {statusLabel(item)}
+                        </span>
                       </div>
-                      <span className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-full border ${color}`}>
-                        {statusLabel(item)}
-                      </span>
+
+                      {item.intervalDays && (
+                        <p className="text-xs text-slate-500 mb-1.5">
+                          🔁 Every {item.intervalDays >= 365 ? `${Math.round(item.intervalDays / 365)} yr${item.intervalDays >= 730 ? "s" : ""}` : item.intervalDays >= 30 ? `${Math.round(item.intervalDays / 30)} mo` : `${item.intervalDays}d`}
+                          {item.lastDoneAt && ` · Last: ${format(new Date(item.lastDoneAt), "MMM d, yyyy")}`}
+                        </p>
+                      )}
+
+                      {item.notes && (
+                        <div>
+                          <p className={`text-xs text-slate-400 leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>{item.notes}</p>
+                          {item.notes.length > 80 && (
+                            <button onClick={() => setExpandedNotes(isExpanded ? null : item.id)} className="text-xs text-brand-600 hover:underline mt-0.5">
+                              {isExpanded ? "Show less" : "Show more"}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {item.intervalDays && (
-                      <p className="text-xs text-slate-500 mb-2">
-                        🔁 Every {item.intervalDays} days
-                        {item.lastDoneAt && ` · Last: ${format(new Date(item.lastDoneAt), "MMM d, yyyy")}`}
-                      </p>
-                    )}
-                    {item.notes && (
-                      <p className="text-xs text-slate-400 italic line-clamp-2 mb-2">{item.notes}</p>
-                    )}
-
-                    <div className="flex items-center gap-1 pt-2 border-t border-slate-100">
-                      {(role === "OWNER" || role === "MANAGER") && (
-                        <button
-                          onClick={() => markDone(item)}
-                          className="flex-1 text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-lg px-2 py-1.5 font-semibold transition"
-                        >
+                    <div className="flex items-center gap-1 px-3 py-2 border-t border-slate-100">
+                      {canEdit && (
+                        <button onClick={() => markDone(item)} className="flex-1 text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-lg px-2 py-1.5 font-semibold transition">
                           ✓ Mark Done
                         </button>
                       )}
-                      {(role === "OWNER" || role === "MANAGER") && (
+                      {canEdit && (
                         <>
                           <button onClick={() => openEditItem(item)} className="p-1.5 text-slate-300 hover:text-brand-600 transition">✏️</button>
                           <button onClick={() => deleteItem(item.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition">🗑️</button>
@@ -523,27 +535,22 @@ export default function MaintenancePage() {
         </div>
       )}
 
-      {/* ── Vehicles Tab ── */}
+      {/* ── VEHICLES TAB ── */}
       {tab === "vehicles" && (
         <div>
           <div className="flex justify-between items-center mb-5">
-            <p className="text-sm text-slate-500">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} tracked</p>
-            {(role === "OWNER" || role === "MANAGER") && (
-              <button onClick={openAddVehicle} className="btn-primary text-sm">+ Add Vehicle</button>
-            )}
+            <p className="text-sm text-slate-500">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} · each comes with an 18-item maintenance schedule</p>
+            {canEdit && <button onClick={openAddVehicle} className="btn-primary text-sm">+ Add Vehicle</button>}
           </div>
 
           {loadingVehicles ? (
-            <div className="flex justify-center py-16">
-              <div className="animate-spin h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent" />
-            </div>
+            <div className="flex justify-center py-16"><div className="animate-spin h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent" /></div>
           ) : vehicles.length === 0 ? (
             <div className="card text-center py-16 text-slate-400">
               <p className="text-4xl mb-2">🚗</p>
-              <p>No vehicles added yet.</p>
-              {(role === "OWNER" || role === "MANAGER") && (
-                <button onClick={openAddVehicle} className="mt-4 btn-primary text-sm">+ Add Vehicle</button>
-              )}
+              <p className="font-medium text-slate-600 mb-1">No vehicles added yet</p>
+              <p className="text-sm mb-4">When you add a vehicle, we&apos;ll automatically set up an 18-item maintenance schedule for it — oil changes, tire rotation, brakes, inspections, and more.</p>
+              {canEdit && <button onClick={openAddVehicle} className="btn-primary text-sm">+ Add Your First Vehicle</button>}
             </div>
           ) : (
             <div className="space-y-6">
@@ -551,25 +558,30 @@ export default function MaintenancePage() {
                 const regStatus = expiryStatus(v.registrationExpiry);
                 const insStatus = expiryStatus(v.insuranceExpiry);
                 const displayName = v.nickname || `${v.year} ${v.make} ${v.model}`;
+                const vTab = vehicleTab[v.id] ?? "schedule";
+                const vItems = v.maintenanceItems;
+                const vOverdue = vItems.filter((i) => dueStatus(i) === "overdue").length;
+                const vSoon = vItems.filter((i) => dueStatus(i) === "soon").length;
+
                 return (
                   <div key={v.id} className="card overflow-hidden">
                     {/* Vehicle header */}
                     <div className="flex items-start justify-between p-5 pb-4 border-b border-slate-100">
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-brand-50 flex items-center justify-center text-3xl shrink-0">
-                          🚗
-                        </div>
+                        <div className="w-14 h-14 rounded-xl bg-brand-50 flex items-center justify-center text-3xl shrink-0">🚗</div>
                         <div>
                           <h2 className="font-bold text-slate-900 text-lg leading-tight">{displayName}</h2>
                           {v.nickname && <p className="text-sm text-slate-400">{v.year} {v.make} {v.model}</p>}
-                          <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
+                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-slate-500">
                             {v.color && <span>🎨 {v.color}</span>}
                             {v.licensePlate && <span>🪪 {v.licensePlate}</span>}
                             {v.currentMileage != null && <span>📍 {v.currentMileage.toLocaleString()} mi</span>}
+                            {vOverdue > 0 && <span className="text-red-600 font-semibold">🔴 {vOverdue} overdue</span>}
+                            {vSoon > 0 && <span className="text-amber-600 font-semibold">🟡 {vSoon} due soon</span>}
                           </div>
                         </div>
                       </div>
-                      {(role === "OWNER" || role === "MANAGER") && (
+                      {canEdit && (
                         <div className="flex gap-1 shrink-0">
                           <button onClick={() => openServiceModal(v)} className="btn-primary text-xs px-3 py-1.5">+ Log Service</button>
                           <button onClick={() => openEditVehicle(v)} className="p-2 text-slate-300 hover:text-brand-600 transition">✏️</button>
@@ -578,22 +590,20 @@ export default function MaintenancePage() {
                       )}
                     </div>
 
-                    {/* Expiry badges + VIN */}
-                    <div className="flex flex-wrap gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100 text-xs">
+                    {/* Expiry row */}
+                    <div className="flex flex-wrap gap-6 px-5 py-3 bg-slate-50 border-b border-slate-100 text-xs">
                       <div>
                         <span className="text-slate-400 font-medium uppercase tracking-wide">Registration</span>
-                        <p className={`font-semibold mt-0.5 ${expiryColor(regStatus)}`}>
+                        <p className={`mt-0.5 ${expiryColor(regStatus)}`}>
                           {v.registrationExpiry ? format(new Date(v.registrationExpiry), "MMM d, yyyy") : "—"}
-                          {regStatus === "expired" && " ⚠️ Expired"}
-                          {regStatus === "soon" && " ⚠️ Expiring soon"}
+                          {regStatus === "expired" && " ⚠️ Expired"}{regStatus === "soon" && " ⚠️ Expires soon"}
                         </p>
                       </div>
                       <div>
                         <span className="text-slate-400 font-medium uppercase tracking-wide">Insurance</span>
-                        <p className={`font-semibold mt-0.5 ${expiryColor(insStatus)}`}>
+                        <p className={`mt-0.5 ${expiryColor(insStatus)}`}>
                           {v.insuranceExpiry ? format(new Date(v.insuranceExpiry), "MMM d, yyyy") : "—"}
-                          {insStatus === "expired" && " ⚠️ Expired"}
-                          {insStatus === "soon" && " ⚠️ Expiring soon"}
+                          {insStatus === "expired" && " ⚠️ Expired"}{insStatus === "soon" && " ⚠️ Expires soon"}
                         </p>
                       </div>
                       {v.vin && (
@@ -604,44 +614,92 @@ export default function MaintenancePage() {
                       )}
                     </div>
 
-                    {/* Service history */}
-                    <div className="px-5 py-4">
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Service History</h3>
-                      {v.serviceRecords.length === 0 ? (
-                        <p className="text-sm text-slate-400">No service records yet.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {v.serviceRecords.map((s) => (
-                            <div key={s.id} className="flex items-start justify-between gap-3 py-2 border-b border-slate-50 last:border-0">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="font-medium text-sm text-slate-800">{s.serviceType}</span>
-                                  <span className="text-xs text-slate-400">{format(new Date(s.date), "MMM d, yyyy")}</span>
-                                  {s.mileage != null && <span className="text-xs text-slate-400">@ {s.mileage.toLocaleString()} mi</span>}
-                                  {s.cost != null && <span className="text-xs text-slate-500 font-medium">${s.cost.toFixed(2)}</span>}
-                                </div>
-                                {s.notes && <p className="text-xs text-slate-400 mt-0.5">{s.notes}</p>}
-                                {s.nextDueDate && (
-                                  <p className="text-xs text-brand-600 mt-0.5">
-                                    Next due: {format(new Date(s.nextDueDate), "MMM d, yyyy")}
-                                    {s.nextDueMileage != null && ` or ${s.nextDueMileage.toLocaleString()} mi`}
-                                  </p>
-                                )}
-                              </div>
-                              {(role === "OWNER" || role === "MANAGER") && (
-                                <button onClick={() => deleteService(s.id)} className="text-slate-200 hover:text-red-400 transition text-xs shrink-0">🗑️</button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    {/* Vehicle sub-tabs */}
+                    <div className="flex gap-0 border-b border-slate-100">
+                      {(["schedule", "history"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setVehicleTab((prev) => ({ ...prev, [v.id]: t }))}
+                          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${vTab === t ? "border-brand-600 text-brand-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+                        >
+                          {t === "schedule" ? `🗓 Maintenance Schedule (${vItems.length})` : `🔧 Service History (${v.serviceRecords.length})`}
+                        </button>
+                      ))}
                     </div>
 
-                    {v.notes && (
-                      <div className="px-5 pb-4">
-                        <p className="text-xs text-slate-400 italic">{v.notes}</p>
+                    {/* Maintenance Schedule */}
+                    {vTab === "schedule" && (
+                      <div className="p-5">
+                        {vItems.length === 0 ? (
+                          <p className="text-sm text-slate-400">No maintenance items yet.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {vItems.map((item) => {
+                              const status = dueStatus(item);
+                              const color = statusColor(status);
+                              return (
+                                <div key={item.id} className={`rounded-lg border p-3 ${status === "overdue" ? "border-red-200 bg-red-50/30" : status === "soon" ? "border-amber-200 bg-amber-50/30" : "border-slate-100 bg-white"}`}>
+                                  <div className="flex items-start justify-between gap-2 mb-1">
+                                    <h4 className="font-medium text-slate-800 text-sm leading-tight">{item.title}</h4>
+                                    <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${color}`}>{statusLabel(item)}</span>
+                                  </div>
+                                  {item.intervalDays && (
+                                    <p className="text-xs text-slate-400 mb-1.5">
+                                      🔁 Every {item.intervalDays >= 365 ? `${Math.round(item.intervalDays / 365)} yr${item.intervalDays >= 730 ? "s" : ""}` : item.intervalDays >= 30 ? `${Math.round(item.intervalDays / 30)} mo` : `${item.intervalDays}d`}
+                                      {item.lastDoneAt && ` · Last: ${format(new Date(item.lastDoneAt), "MMM d, yyyy")}`}
+                                    </p>
+                                  )}
+                                  {item.notes && <p className="text-xs text-slate-400 line-clamp-2 mb-2">{item.notes}</p>}
+                                  {canEdit && (
+                                    <button onClick={() => markDone(item)} className="w-full text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-lg px-2 py-1.5 font-semibold transition">
+                                      ✓ Mark Done
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
+
+                    {/* Service History */}
+                    {vTab === "history" && (
+                      <div className="p-5">
+                        {v.serviceRecords.length === 0 ? (
+                          <div className="text-center py-6 text-slate-400">
+                            <p className="text-2xl mb-1">🔧</p>
+                            <p className="text-sm">No service records yet.</p>
+                            {canEdit && <button onClick={() => openServiceModal(v)} className="mt-3 btn-primary text-xs">+ Log First Service</button>}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {v.serviceRecords.map((s) => (
+                              <div key={s.id} className="flex items-start justify-between gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium text-sm text-slate-800">{s.serviceType}</span>
+                                    <span className="text-xs text-slate-400">{format(new Date(s.date), "MMM d, yyyy")}</span>
+                                    {s.mileage != null && <span className="text-xs text-slate-400">@ {s.mileage.toLocaleString()} mi</span>}
+                                    {s.cost != null && <span className="text-xs text-slate-500 font-medium">${s.cost.toFixed(2)}</span>}
+                                  </div>
+                                  {s.notes && <p className="text-xs text-slate-400 mt-0.5">{s.notes}</p>}
+                                  {s.nextDueDate && (
+                                    <p className="text-xs text-brand-600 mt-0.5">
+                                      Next due: {format(new Date(s.nextDueDate), "MMM d, yyyy")}
+                                      {s.nextDueMileage != null && ` or ${s.nextDueMileage.toLocaleString()} mi`}
+                                    </p>
+                                  )}
+                                </div>
+                                {canEdit && <button onClick={() => deleteService(s.id)} className="text-slate-200 hover:text-red-400 transition text-xs shrink-0 mt-0.5">🗑️</button>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {v.notes && <div className="px-5 pb-4"><p className="text-xs text-slate-400 italic">{v.notes}</p></div>}
                   </div>
                 );
               })}
@@ -681,8 +739,8 @@ export default function MaintenancePage() {
                 <input type="date" value={itemForm.lastDoneAt} onChange={(e) => setItemForm((f) => ({ ...f, lastDoneAt: e.target.value }))} className="input w-full" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
-                <textarea value={itemForm.notes} onChange={(e) => setItemForm((f) => ({ ...f, notes: e.target.value }))} rows={3} className="input w-full resize-none" placeholder="Brand, filter size, notes…" />
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Notes / Tips</label>
+                <textarea value={itemForm.notes} onChange={(e) => setItemForm((f) => ({ ...f, notes: e.target.value }))} rows={3} className="input w-full resize-none" placeholder="Brand preferences, sizes, tips…" />
               </div>
               {itemError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{itemError}</p>}
               <div className="flex justify-end gap-2 pt-2">
@@ -699,7 +757,10 @@ export default function MaintenancePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-              <h2 className="font-bold text-slate-800">{editVehicle ? "Edit Vehicle" : "Add Vehicle"}</h2>
+              <div>
+                <h2 className="font-bold text-slate-800">{editVehicle ? "Edit Vehicle" : "Add Vehicle"}</h2>
+                {!editVehicle && <p className="text-xs text-slate-400 mt-0.5">18 maintenance tasks will be auto-created for this vehicle</p>}
+              </div>
               <button onClick={() => setShowVehicleModal(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
             </div>
             <form onSubmit={submitVehicle} className="px-6 py-5 space-y-4">

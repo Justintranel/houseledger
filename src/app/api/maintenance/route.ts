@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const itemFields = {
   title: z.string().min(1).max(200),
   category: z.string().min(1).max(100),
+  vehicleId: z.string().optional().nullable(),
   intervalDays: z.number().int().min(1).optional().nullable(),
   lastDoneAt: z.string().datetime().optional().nullable(),
   nextDueAt: z.string().datetime().optional().nullable(),
@@ -18,11 +19,21 @@ const itemFields = {
 const postSchema = z.object(itemFields);
 const patchSchema = z.object({ id: z.string().min(1), ...itemFields }).partial({ title: true, category: true });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const auth = await requireHouseholdRole();
+    const { searchParams } = new URL(req.url);
+    const vehicleId = searchParams.get("vehicleId"); // "null" = house only, id = vehicle only, absent = all
+
+    const where: Record<string, unknown> = { householdId: auth.householdId };
+    if (vehicleId === "null") {
+      where.vehicleId = null;
+    } else if (vehicleId) {
+      where.vehicleId = vehicleId;
+    }
+
     const items = await prisma.maintenanceItem.findMany({
-      where: { householdId: auth.householdId },
+      where,
       orderBy: [{ category: "asc" }, { title: "asc" }],
     });
     return NextResponse.json(items);
@@ -39,10 +50,11 @@ export async function POST(req: NextRequest) {
     const parsed = postSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message ?? "Invalid input" }, { status: 400 });
 
-    const { title, category, intervalDays, lastDoneAt, nextDueAt, notes } = parsed.data;
+    const { title, category, vehicleId, intervalDays, lastDoneAt, nextDueAt, notes } = parsed.data;
     const item = await prisma.maintenanceItem.create({
       data: {
         householdId: auth.householdId,
+        vehicleId: vehicleId ?? null,
         title,
         category,
         intervalDays: intervalDays ?? null,
@@ -71,7 +83,6 @@ export async function PATCH(req: NextRequest) {
     if (!existing || existing.householdId !== auth.householdId)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Convert date strings
     const data: Record<string, unknown> = { ...fields };
     if ("lastDoneAt" in fields) data.lastDoneAt = fields.lastDoneAt ? new Date(fields.lastDoneAt as string) : null;
     if ("nextDueAt" in fields) data.nextDueAt = fields.nextDueAt ? new Date(fields.nextDueAt as string) : null;

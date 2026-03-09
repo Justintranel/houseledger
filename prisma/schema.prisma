@@ -954,6 +954,7 @@ model BlogPost {
 model MaintenanceItem {
   id           String    @id @default(cuid())
   householdId  String
+  vehicleId    String?   // null = house item; set = vehicle-specific item
   title        String
   category     String
   intervalDays Int?
@@ -964,6 +965,7 @@ model MaintenanceItem {
   updatedAt    DateTime  @updatedAt
 
   household    Household @relation(fields: [householdId], references: [id])
+  vehicle      Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 }
 
 // ─── Vehicles ─────────────────────────────────────────────────────────────────
@@ -985,8 +987,9 @@ model Vehicle {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  household      Household      @relation(fields: [householdId], references: [id])
-  serviceRecords VehicleService[]
+  household         Household         @relation(fields: [householdId], references: [id])
+  serviceRecords    VehicleService[]
+  maintenanceItems  MaintenanceItem[]
 }
 
 model VehicleService {
