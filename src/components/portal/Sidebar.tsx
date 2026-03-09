@@ -41,26 +41,26 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/approvals",  icon: "💳",  label: "Approvals",       flag: "approvals",   roles: null },
       { href: "/dashboard/meals",      icon: "🍽️", label: "Meal Planner",    flag: null,          roles: null },
       { href: "/dashboard/travel",     icon: "✈️",  label: "Travel",          flag: null,          roles: null },
-      { href: "/dashboard/calendar",   icon: "📅",  label: "Family Calendar",    flag: null,          roles: null },
-      { href: "/dashboard/reviews",           icon: "⭐", label: "Performance Reviews", flag: null, roles: ["OWNER", "FAMILY"] },
-      { href: "/dashboard/reviews/my-reviews", icon: "⭐", label: "Performance Reviews", flag: null, roles: ["MANAGER"] },
-      { href: "/dashboard/payroll",            icon: "💸", label: "Payroll",              flag: null, roles: ["OWNER"] },
+      { href: "/dashboard/calendar",   icon: "📅",  label: "Family Calendar", flag: null,          roles: null },
     ],
   },
   {
     label: "Compliance",
     items: [
-      { href: "/dashboard/time",       icon: "⏱️",  label: "Timesheet",   flag: "timetracking", roles: null },
-      { href: "/dashboard/time/clock", icon: "⏲️",  label: "Clock In/Out", flag: "timetracking", roles: ["MANAGER"] },
-      { href: "/dashboard/contracts",  icon: "📄",  label: "Contracts",   flag: "contracts",    roles: null },
+      { href: "/dashboard/time",               icon: "⏱️",  label: "Timesheet",           flag: "timetracking", roles: null },
+      { href: "/dashboard/time/clock",         icon: "⏲️",  label: "Clock In/Out",         flag: "timetracking", roles: ["MANAGER"] },
+      { href: "/dashboard/contracts",          icon: "📄",  label: "Contracts",            flag: "contracts",    roles: null },
+      { href: "/dashboard/settings/workers",   icon: "👥",  label: "Workers & Rates",      flag: null,           roles: ["OWNER"] },
+      { href: "/dashboard/reviews",            icon: "⭐",  label: "Performance Reviews",  flag: null,           roles: ["OWNER", "FAMILY"] },
+      { href: "/dashboard/reviews/my-reviews", icon: "⭐",  label: "Performance Reviews",  flag: null,           roles: ["MANAGER"] },
+      { href: "/dashboard/payroll",            icon: "💸",  label: "Payroll",              flag: null,           roles: ["OWNER"] },
     ],
   },
 ];
 
 const ADMIN_NAV = [
-  { href: "/dashboard/settings",         icon: "⚙️", label: "Settings" },
-  { href: "/dashboard/settings/workers", icon: "👥", label: "Workers & Rates" },
-  { href: "/dashboard/billing",          icon: "💰", label: "Billing" },
+  { href: "/dashboard/settings", icon: "⚙️", label: "Settings" },
+  { href: "/dashboard/billing",  icon: "💰", label: "Billing" },
 ];
 
 interface Props {
