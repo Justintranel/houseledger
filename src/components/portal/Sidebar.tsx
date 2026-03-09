@@ -25,7 +25,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard",             icon: "🏠", label: "Dashboard",        flag: null,           roles: null },
       { href: "/dashboard/profile",   icon: "🏡", label: "House Profile",    flag: "houseprofile", roles: null },
       { href: "/dashboard/sop",       icon: "📖", label: "House SOPs",       flag: null,           roles: null },
-      { href: "/dashboard/vendors",   icon: "🔨", label: "Vendors",          flag: "vendors",      roles: null },
+      { href: "/dashboard/vendors",     icon: "🔨", label: "Vendors",          flag: "vendors",      roles: null },
+      { href: "/dashboard/maintenance", icon: "🔩", label: "Maintenance",       flag: null,           roles: null },
       { href: "/dashboard/training",  icon: "🎓", label: "Training Videos",  flag: null,           roles: null },
     ],
   },
@@ -196,8 +197,14 @@ export default function Sidebar({ role, householdName, flags }: Props) {
         )}
       </nav>
 
-      {/* Support link */}
+      {/* Support + My Profile */}
       <div className="px-2 pb-2 border-t border-white/10 pt-3 space-y-0.5">
+        <Link
+          href="/dashboard/account"
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/account") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+        >
+          <span>👤</span> My Profile
+        </Link>
         <Link
           href="/dashboard/support"
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/support") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
