@@ -1,37 +1,49 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getPostBySlug, getAllSlugs, posts } from "@/lib/blog";
+import { prisma } from "@/lib/db";
 import type { Metadata } from "next";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: { slug: string };
 }
 
-export function generateStaticParams() {
-  return getAllSlugs().map((slug) => ({ slug }));
-}
-
-export function generateMetadata({ params }: Props): Metadata {
-  const post = getPostBySlug(params.slug);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const post = await prisma.blogPost.findUnique({
+    where: { slug: params.slug, published: true },
+    select: { title: true, excerpt: true },
+  });
   if (!post) return {};
   return {
     title: `${post.title} | The House Ledger Blog`,
-    description: post.excerpt,
+    description: post.excerpt ?? undefined,
   };
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Homeowner Tips": "bg-emerald-100 text-emerald-700",
   "Home Management": "bg-brand-100 text-brand-700",
-  "Industry Insights": "bg-amber-100 text-amber-700",
+  "House Manager Tips": "bg-violet-100 text-violet-700",
+  "Homeowner Advice": "bg-emerald-100 text-emerald-700",
+  "Cleaning & Maintenance": "bg-cyan-100 text-cyan-700",
+  "Organization": "bg-amber-100 text-amber-700",
+  "Technology": "bg-sky-100 text-sky-700",
+  "Case Studies": "bg-rose-100 text-rose-700",
 };
 
-export default function BlogPostPage({ params }: Props) {
-  const post = getPostBySlug(params.slug);
+export default async function BlogPostPage({ params }: Props) {
+  const post = await prisma.blogPost.findUnique({
+    where: { slug: params.slug, published: true },
+  });
   if (!post) notFound();
 
-  const related = posts.filter((p) => p.slug !== post.slug).slice(0, 2);
+  const related = await prisma.blogPost.findMany({
+    where: { published: true, slug: { not: post.slug } },
+    orderBy: { publishedAt: "desc" },
+    take: 2,
+    select: { slug: true, title: true, category: true, readTime: true },
+  });
 
   return (
     <div className="min-h-screen bg-white">
@@ -75,24 +87,34 @@ export default function BlogPostPage({ params }: Props) {
         {/* Article header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CATEGORY_COLORS[post.category] ?? "bg-slate-100 text-slate-600"}`}
-            >
-              {post.category}
-            </span>
-            <span className="text-xs text-slate-400">{post.readTime}</span>
+            {post.category && (
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CATEGORY_COLORS[post.category] ?? "bg-slate-100 text-slate-600"}`}>
+                {post.category}
+              </span>
+            )}
+            {post.readTime && (
+              <span className="text-xs text-slate-400">{post.readTime} min read</span>
+            )}
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-4">
             {post.title}
           </h1>
-          <p className="text-lg text-slate-500 leading-relaxed mb-6">{post.excerpt}</p>
+          {post.excerpt && (
+            <p className="text-lg text-slate-500 leading-relaxed mb-6">{post.excerpt}</p>
+          )}
           <div className="flex items-center gap-3 pb-6 border-b border-slate-200">
             <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-sm shrink-0">
               HL
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-900">{post.author}</p>
-              <p className="text-xs text-slate-400">{post.date}</p>
+              {post.publishedAt && (
+                <p className="text-xs text-slate-400">
+                  {new Date(post.publishedAt).toLocaleDateString("en-US", {
+                    month: "long", day: "numeric", year: "numeric",
+                  })}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -100,12 +122,12 @@ export default function BlogPostPage({ params }: Props) {
         {/* Article content */}
         <div
           className="blog-content"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: post.body }}
         />
 
         {/* CTA */}
         <div className="mt-14 bg-brand-900 text-white rounded-2xl p-8 text-center">
-          <p className="text-xl font-bold mb-2">Try The House Ledger System free for 14 days</p>
+          <p className="text-xl font-bold mb-2">Try The House Ledger System free for 7 days</p>
           <p className="text-white/70 text-sm mb-5">
             Everything you need to run your home professionally — tasks, SOPs, approvals, time tracking, and more.
           </p>
@@ -113,7 +135,7 @@ export default function BlogPostPage({ params }: Props) {
             href="/signup"
             className="inline-block bg-white text-brand-900 font-semibold text-sm px-6 py-2.5 rounded-lg hover:bg-white/90 transition"
           >
-            Get started free →
+            Get started →
           </Link>
         </div>
 
@@ -128,17 +150,19 @@ export default function BlogPostPage({ params }: Props) {
                   href={`/blog/${p.slug}`}
                   className="group card p-5 hover:shadow-lg transition-shadow"
                 >
-                  <div className="mb-2">
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[p.category] ?? "bg-slate-100 text-slate-600"}`}
-                    >
-                      {p.category}
-                    </span>
-                  </div>
+                  {p.category && (
+                    <div className="mb-2">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[p.category] ?? "bg-slate-100 text-slate-600"}`}>
+                        {p.category}
+                      </span>
+                    </div>
+                  )}
                   <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors leading-snug mb-1">
                     {p.title}
                   </h3>
-                  <p className="text-xs text-slate-400">{p.readTime}</p>
+                  {p.readTime && (
+                    <p className="text-xs text-slate-400">{p.readTime} min read</p>
+                  )}
                 </Link>
               ))}
             </div>

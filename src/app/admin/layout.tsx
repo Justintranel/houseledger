@@ -8,6 +8,7 @@ import AdminSignOutButton from "./AdminSignOutButton";
 const NAV = [
   { href: "/admin", label: "Overview", icon: "📊", exact: true },
   { href: "/admin/accounts", label: "Accounts", icon: "🏠" },
+  { href: "/admin/blog", label: "Blog Posts", icon: "✍️" },
   { href: "/admin/tickets", label: "Support Tickets", icon: "🎫" },
   { href: "/admin/audit", label: "Audit Log", icon: "📜" },
 ];

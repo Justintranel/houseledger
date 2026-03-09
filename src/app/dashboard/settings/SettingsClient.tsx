@@ -38,7 +38,7 @@ export default function SettingsClient({
   initialFlags,
 }: Props) {
   const [tab, setTab] = useState<
-    "household" | "members" | "billing" | "flags"
+    "household" | "members" | "flags"
   >("household");
 
   // Household form state
@@ -73,10 +73,6 @@ export default function SettingsClient({
   // Flags state
   const [flags, setFlags] = useState<FeatureFlag[]>(initialFlags);
   const [flagsSaving, setFlagsSaving] = useState<Record<string, boolean>>({});
-
-  // Billing
-  const [billingLoading, setBillingLoading] = useState(false);
-  const [billingError, setBillingError] = useState("");
 
   function toggleWorkDay(day: string) {
     setWorkDays((prev) =>
@@ -128,22 +124,6 @@ export default function SettingsClient({
     }
   }
 
-  async function openBillingPortal() {
-    setBillingLoading(true);
-    setBillingError("");
-    try {
-      const res = await fetch("/api/stripe/portal", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-      } else {
-        setBillingError("Could not open billing portal.");
-      }
-    } finally {
-      setBillingLoading(false);
-    }
-  }
-
   async function toggleFlag(flag: FeatureFlag) {
     setFlagsSaving((prev) => ({ ...prev, [flag.key]: true }));
     try {
@@ -175,7 +155,6 @@ export default function SettingsClient({
           [
             ["household", "Household"],
             ["members", "Members"],
-            ["billing", "Billing"],
             ["flags", "Feature Flags"],
           ] as const
         ).map(([key, label]) => (
@@ -369,51 +348,6 @@ export default function SettingsClient({
                 </div>
               </div>
             )}
-        </div>
-      )}
-
-      {/* BILLING TAB */}
-      {tab === "billing" && (
-        <div className="card max-w-md">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">
-            Billing
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Current Plan</span>
-              <span className="font-medium text-gray-800">House Ledger Pro</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Status</span>
-              <span
-                className={`badge ${
-                  initialHousehold?.subscriptionStatus === "active"
-                    ? "badge-green"
-                    : initialHousehold?.subscriptionStatus === "canceled"
-                    ? "badge-red"
-                    : "badge-yellow"
-                }`}
-              >
-                {initialHousehold?.subscriptionStatus ?? "unknown"}
-              </span>
-            </div>
-            <div className="border-t border-gray-100 pt-4">
-              {billingError && (
-                <p className="text-sm text-red-600 mb-3">{billingError}</p>
-              )}
-              <button
-                onClick={openBillingPortal}
-                disabled={billingLoading}
-                className="btn-primary text-sm w-full"
-              >
-                {billingLoading ? "Opening..." : "Manage Billing"}
-              </button>
-              <p className="text-xs text-gray-400 mt-2 text-center">
-                Opens the Stripe customer portal to manage your subscription,
-                update payment methods, and view invoices.
-              </p>
-            </div>
-          </div>
         </div>
       )}
 
