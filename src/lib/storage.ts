@@ -22,13 +22,6 @@ export interface UploadResult {
 
 // ─── S3 helpers ───────────────────────────────────────────────────────────────
 
-function getS3PublicUrl(key: string): string {
-  if (process.env.S3_PUBLIC_URL) {
-    return `${process.env.S3_PUBLIC_URL.replace(/\/$/, "")}/${key}`;
-  }
-  return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-}
-
 async function uploadToS3(buffer: Buffer, key: string, mimeType: string): Promise<void> {
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
 
@@ -71,8 +64,10 @@ export async function uploadFile(
 
     await uploadToS3(buffer, key, mimeType);
 
+    // Serve files through the /api/files proxy so they work even on private buckets.
+    // The proxy generates a short-lived pre-signed URL and redirects the browser.
     return {
-      url: getS3PublicUrl(key),
+      url: `/api/files/${key}`,
       fileName: originalName,
       fileSize: buffer.length,
     };

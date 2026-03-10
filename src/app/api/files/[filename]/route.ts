@@ -35,15 +35,6 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Only serve files if using local storage (default when STORAGE_PROVIDER is unset)
-  const storageProvider = process.env.STORAGE_PROVIDER || "local";
-  if (storageProvider !== "local") {
-    return NextResponse.json(
-      { error: "Local file serving is not enabled" },
-      { status: 404 }
-    );
-  }
-
   const { filename } = params;
 
   // Sanitize filename — prevent path traversal attacks
@@ -52,6 +43,39 @@ export async function GET(
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
+  const storageProvider = process.env.STORAGE_PROVIDER || "local";
+
+  // ── S3: generate a pre-signed URL and redirect ─────────────────────────────
+  if (storageProvider === "s3") {
+    try {
+      const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+
+      const client = new S3Client({
+        region: process.env.AWS_REGION ?? "us-east-1",
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+      });
+
+      const command = new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET!,
+        Key: sanitized,
+      });
+
+      // Pre-signed URL valid for 1 hour — short enough to be secure, long
+      // enough that it won't expire mid-page-view.
+      const signedUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+
+      return NextResponse.redirect(signedUrl, { status: 302 });
+    } catch (err) {
+      console.error("[GET /api/files/[filename]] S3 pre-sign failed:", err);
+      return NextResponse.json({ error: "Failed to retrieve file" }, { status: 500 });
+    }
+  }
+
+  // ── Local storage (dev) ────────────────────────────────────────────────────
   const uploadsDir = path.join(process.cwd(), "uploads");
   const filePath = path.join(uploadsDir, sanitized);
 

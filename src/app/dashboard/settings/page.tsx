@@ -44,7 +44,9 @@ export default async function SettingsPage() {
             ? {
                 ...household,
                 hourlyRate: null,
-                workDays: (household.workDays ?? []) as string[],
+                workDays: (household.workDays ?? []).map((n) =>
+                  ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][n] ?? String(n)
+                ),
                 workStart: household.workStart ?? null,
                 workEnd: household.workEnd ?? null,
               }

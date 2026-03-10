@@ -290,11 +290,19 @@ export default function VendorsPage() {
     if (!form.name.trim()) { setFormError("Name is required."); return; }
     setFormSubmitting(true);
     try {
+      // Normalize website URL — add https:// if user typed www.example.com or example.com
+      const rawWebsite = form.website.trim();
+      const normalizedWebsite = rawWebsite
+        ? /^https?:\/\//i.test(rawWebsite)
+          ? rawWebsite
+          : `https://${rawWebsite}`
+        : undefined;
+
       const body: Record<string, unknown> = {
         name: form.name.trim(),
         phone: form.phone || undefined,
         email: form.email || undefined,
-        website: form.website || undefined,
+        website: normalizedWebsite,
         address: form.address || undefined,
         license: form.license || undefined,
         type: form.type || undefined,
@@ -601,7 +609,7 @@ export default function VendorsPage() {
               {/* Website */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Website</label>
-                <input type="url" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} className="input w-full" placeholder="https://vendorsite.com" />
+                <input type="text" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} className="input w-full" placeholder="www.vendorsite.com" />
               </div>
 
               {/* Address */}
