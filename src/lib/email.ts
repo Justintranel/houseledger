@@ -38,7 +38,7 @@ function layout(title: string, body: string): string {
         <tr>
           <td style="padding:20px 36px;border-top:1px solid #e2e8f0;">
             <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-              © ${new Date().getFullYear()} ${APP_NAME} · <a href="${getAppUrl()}" style="color:#94a3b8;">houseledger.vercel.app</a>
+              © ${new Date().getFullYear()} ${APP_NAME} · <a href="${getAppUrl()}" style="color:#94a3b8;">thehouseledger.com</a>
             </p>
           </td>
         </tr>
