@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import HouseBible from "@/components/emergency/HouseBible";
 
 interface EmergencyContact {
   id: string;
@@ -54,7 +55,7 @@ function normalizeUrl(url: string): string {
 }
 
 export default function EmergencyInfoPage() {
-  const [tab, setTab] = useState<"insurance" | "contacts" | "workplace" | "hospitals" | "vets">("insurance");
+  const [tab, setTab] = useState<"insurance" | "contacts" | "workplace" | "hospitals" | "vets" | "bible">("insurance");
 
   // Insurance
   const [insurance, setInsurance] = useState<EmergencyInsurance>(EMPTY_INSURANCE);
@@ -267,6 +268,7 @@ export default function EmergencyInfoPage() {
           ["workplace",  "💼", "Workplace Contacts"],
           ["hospitals",  "🏨", "Hospitals & Urgent Care"],
           ["vets",       "🐾", "Emergency Vets"],
+          ["bible",      "📖", "House Bible"],
         ] as const).map(([key, icon, label]) => (
           <button
             key={key}
@@ -278,7 +280,15 @@ export default function EmergencyInfoPage() {
         ))}
       </div>
 
-      {loading ? (
+      {/* House Bible renders independently (fetches its own data) */}
+      {tab === "bible" ? (
+        <HouseBible
+          contacts={contacts}
+          workplaceContacts={workplaceContacts}
+          facilities={facilities}
+          insurance={insurance}
+        />
+      ) : loading ? (
         <p className="text-sm text-slate-400 py-8 text-center">Loading…</p>
       ) : (
         <>
@@ -409,6 +419,7 @@ export default function EmergencyInfoPage() {
             <FacilityTab title="Emergency Veterinarians" emoji="🐾" type="VET" facilities={vets}
               onAdd={() => openAddFacility("VET")} onEdit={openEditFacility} onDelete={deleteFacility} deletingId={deletingId} />
           )}
+
         </>
       )}
 
