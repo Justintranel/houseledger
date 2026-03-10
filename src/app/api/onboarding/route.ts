@@ -122,8 +122,10 @@ export async function POST(req: NextRequest) {
       await upsertUserAndAddMember(email, householdId, "FAMILY");
     }
 
-    // Create/invite manager
-    if (managerEmail) {
+    // Create/invite manager — guard against owner entering their own email
+    // (causes duplicate membership that breaks role detection on sign-in)
+    const ownerUser = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (managerEmail && managerEmail.toLowerCase() !== (ownerUser?.email ?? "").toLowerCase()) {
       await upsertUserAndAddMember(managerEmail, householdId, "MANAGER");
     }
 

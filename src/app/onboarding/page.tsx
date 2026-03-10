@@ -141,7 +141,7 @@ export default function OnboardingPage() {
       await update({
         onboardingCompleted: true,
         householdId: data.householdId,
-        role: "OWNER",
+        refreshRole: true, // triggers DB re-read of role (cannot set role directly from client)
       });
 
       setDone(true);

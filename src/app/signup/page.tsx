@@ -51,14 +51,28 @@ function SignupForm() {
 
   return (
     <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl px-8 py-10">
-      <div className="text-center mb-8">
-        <Link href="/" className="text-2xl font-bold text-brand-700">🏠 The House Ledger System</Link>
-        <p className="text-slate-500 text-sm mt-1">Create your household account</p>
+      <div className="text-center mb-6">
+        <Link href="/" className="text-2xl font-bold text-brand-700">🏠 The House Ledger</Link>
+        <p className="text-slate-700 font-semibold mt-1">Create your Household Owner account</p>
+        <p className="text-slate-400 text-xs mt-1">
+          You manage the household. Your house manager gets their own invite after setup.
+        </p>
+      </div>
+
+      {/* Owner vs Manager clarifier */}
+      <div className="mb-5 p-3 bg-brand-50 border border-brand-200 rounded-xl flex gap-3 items-start">
+        <span className="text-xl shrink-0 mt-0.5">🏡</span>
+        <div>
+          <p className="text-sm font-semibold text-brand-800">This account is for the Homeowner</p>
+          <p className="text-xs text-brand-700 mt-0.5">
+            If you&apos;re a house manager, ask your employer to invite you from their account — <strong>do not sign up here</strong>.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Your full name</label>
           <input
             type="text"
             required
@@ -69,7 +83,7 @@ function SignupForm() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Your email</label>
           <input
             type="email"
             required
@@ -110,7 +124,7 @@ function SignupForm() {
         )}
 
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? "Creating account…" : "Create Account →"}
+          {loading ? "Creating account…" : "Create Owner Account →"}
         </button>
       </form>
 

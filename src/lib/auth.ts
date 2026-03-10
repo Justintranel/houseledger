@@ -69,11 +69,20 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
-        // Find the user's household membership to get role
-        const membership = await prisma.householdMember.findFirst({
+        // Find the user's household memberships.
+        // If they have multiple (e.g. accidentally added own email as manager during
+        // onboarding), always prefer the OWNER role to prevent access loss.
+        const memberships = await prisma.householdMember.findMany({
           where: { userId: user.id },
           include: { household: true },
+          orderBy: { joinedAt: "asc" },
         });
+
+        // Pick OWNER membership first, then FAMILY, then MANAGER
+        const rolePriority: Record<string, number> = { OWNER: 0, FAMILY: 1, MANAGER: 2 };
+        const membership = memberships.sort(
+          (a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
+        )[0] ?? null;
 
         return {
           id: user.id,
@@ -119,15 +128,33 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Allow the onboarding page to update the JWT without a sign-out/sign-in cycle.
-      // NOTE: `role` is intentionally excluded — accepting role from the client via
-      // session.update({ role: "OWNER" }) would let any authenticated user escalate
-      // their own privileges. Use requireHouseholdRole() for a DB-authoritative role.
+      // NOTE: `role` cannot be set directly from the client (that would allow privilege
+      // escalation). Instead, the client sends `refreshRole: true` which triggers a
+      // DB re-read here — the role comes from the database, not the client.
       if (trigger === "update") {
         if (session?.onboardingCompleted !== undefined) {
           token.onboardingCompleted = session.onboardingCompleted;
         }
         if (session?.householdId !== undefined) {
           token.householdId = session.householdId;
+        }
+        // Safe role refresh: client signals "please re-read my role from DB".
+        // The actual role value always comes from the database — never from the client.
+        if (session?.refreshRole === true && token.id) {
+          const memberships = await prisma.householdMember.findMany({
+            where: { userId: token.id as string },
+            include: { household: true },
+            orderBy: { joinedAt: "asc" },
+          });
+          const rolePriority: Record<string, number> = { OWNER: 0, FAMILY: 1, MANAGER: 2 };
+          const best = memberships.sort(
+            (a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
+          )[0];
+          if (best) {
+            token.role = best.role;
+            token.householdId = best.householdId;
+            token.onboardingCompleted = best.household.onboardingCompleted;
+          }
         }
       }
       return token;
