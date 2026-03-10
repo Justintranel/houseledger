@@ -199,6 +199,24 @@ export default function AccountPage() {
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </form>
+
+      {/* Replay feature tour */}
+      <div className="mt-8 pt-6 border-t border-slate-100">
+        <h2 className="text-sm font-semibold text-slate-700 mb-1">Feature Tour</h2>
+        <p className="text-xs text-slate-400 mb-3">
+          Re-run the guided walkthrough of all The House Ledger features.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            try { localStorage.removeItem("hl_tour_v1_seen"); } catch {}
+            window.location.reload();
+          }}
+          className="btn-secondary text-sm px-4 py-2"
+        >
+          🗺️ Replay Feature Tour
+        </button>
+      </div>
     </div>
   );
 }

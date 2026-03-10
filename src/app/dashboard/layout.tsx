@@ -7,6 +7,7 @@ import { getAllFlags } from "@/lib/flags";
 import Sidebar from "@/components/portal/Sidebar";
 import SubscriptionBanner from "@/components/portal/SubscriptionBanner";
 import PaywallOverlay from "@/components/portal/PaywallOverlay";
+import FeatureTour from "@/components/portal/FeatureTour";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -95,6 +96,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
           {isPaywalled && <PaywallOverlay accountStatus={accountStatus} />}
         </main>
+        <FeatureTour role={role} />
       </div>
     </div>
   );
