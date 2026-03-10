@@ -30,6 +30,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/training",  icon: "🎓", label: "Training Videos",  flag: null,           roles: null },
       { href: "/dashboard/family",    icon: "👨‍👩‍👧‍👦", label: "Family Bio",       flag: null,           roles: null },
       { href: "/dashboard/emergency", icon: "🚨", label: "Emergency Info",    flag: null,           roles: null },
+      { href: "/dashboard/house-bible", icon: "📚", label: "House Bible",      flag: null,           roles: null },
     ],
   },
   {
