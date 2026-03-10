@@ -220,7 +220,60 @@ export async function sendPurchaseDeniedEmail(
   });
 }
 
-// ─── 7. Weekly Summary (sent Friday night) ────────────────────────────────
+// ─── 7. Clock In / Clock Out notifications ────────────────────────────────
+
+export async function sendClockInEmail(
+  to: string,
+  workerName: string,
+  time: string,
+  householdName: string,
+) {
+  await getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: `⏱ ${workerName} clocked in — ${householdName}`,
+    html: layout(
+      "Clock-in notification",
+      `${h1(`${workerName} just clocked in ⏱`)}
+       ${p(`Your house manager <strong>${workerName}</strong> clocked in at <strong>${time}</strong> for <strong>${householdName}</strong>.`)}
+       ${btn("View Timesheet", `${getAppUrl()}/dashboard/time`)}
+       ${note("You're receiving this because clock-in notifications are enabled in your household settings.")}`,
+    ),
+  });
+}
+
+export async function sendClockOutEmail(
+  to: string,
+  workerName: string,
+  clockIn: string,
+  clockOut: string,
+  durationMinutes: number,
+  householdName: string,
+) {
+  const hours = Math.floor(durationMinutes / 60);
+  const mins = durationMinutes % 60;
+  const duration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  await getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: `✅ ${workerName} clocked out — ${householdName}`,
+    html: layout(
+      "Clock-out notification",
+      `${h1(`${workerName} clocked out ✅`)}
+       ${p(`Your house manager <strong>${workerName}</strong> finished their shift at <strong>${householdName}</strong>.`)}
+       <table style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin:16px 0;width:100%;box-sizing:border-box;">
+         <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Clocked in</td><td style="font-size:14px;font-weight:600;color:#1e293b;">${clockIn}</td></tr>
+         <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Clocked out</td><td style="font-size:14px;font-weight:600;color:#1e293b;">${clockOut}</td></tr>
+         <tr><td style="font-size:14px;color:#64748b;padding:4px 0;">Total time</td><td style="font-size:14px;font-weight:600;color:#1e293b;">${duration}</td></tr>
+       </table>
+       ${btn("Review & Approve", `${getAppUrl()}/dashboard/time`)}
+       ${note("You're receiving this because clock-out notifications are enabled in your household settings.")}`,
+    ),
+  });
+}
+
+// ─── 8. Weekly Summary (sent Friday night) ────────────────────────────────
 
 export interface WeeklySummaryData {
   ownerEmail: string;

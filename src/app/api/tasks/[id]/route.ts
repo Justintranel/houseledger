@@ -32,9 +32,14 @@ const patchSchema = z
     status: z.enum(["TODO", "IN_PROGRESS", "DONE", "SKIPPED"]).optional(),
     title: z.string().min(1).max(300).optional(),
     description: z.string().max(2000).nullable().optional(),
+    category: z.string().max(200).nullable().optional(),
   })
   .refine(
-    (d) => d.status !== undefined || d.title !== undefined || d.description !== undefined,
+    (d) =>
+      d.status !== undefined ||
+      d.title !== undefined ||
+      d.description !== undefined ||
+      d.category !== undefined,
     { message: "At least one field required" },
   );
 
@@ -59,22 +64,23 @@ export async function PATCH(
     const instance = await prisma.taskInstance.findFirst({ where: { id: params.id, householdId: auth.householdId } });
     if (!instance) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // MANAGER can only update status, not edit title/description
+    // MANAGER can only update status, not edit title/description/category
     if (
       auth.role === "MANAGER" &&
-      (parsed.data.title !== undefined || parsed.data.description !== undefined)
+      (parsed.data.title !== undefined || parsed.data.description !== undefined || parsed.data.category !== undefined)
     ) {
       return NextResponse.json(
-        { error: "Managers cannot edit task title or description" },
+        { error: "Managers cannot edit task details" },
         { status: 403 },
       );
     }
 
-    const { status, title, description } = parsed.data;
+    const { status, title, description, category } = parsed.data;
     const updateData: Record<string, unknown> = {};
 
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
 
     if (status !== undefined) {
       updateData.status = status;

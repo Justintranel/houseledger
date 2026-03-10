@@ -208,6 +208,109 @@ model Household {
   supportTickets       SupportTicket[]
   maintenanceItems     MaintenanceItem[]
   vehicles             Vehicle[]
+
+  // Notification settings (clock in/out alerts)
+  clockNotifyEmail     String?  // email to notify; null = disabled
+  clockNotifyPhone     String?  // E.164 phone for SMS; null = disabled
+
+  // Family Bio
+  familyMembers        FamilyMember[]
+  houseRules           HouseRule[]
+
+  // Emergency Info
+  emergencyContacts    EmergencyContact[]
+  emergencyFacilities  EmergencyFacility[]
+  emergencyInsurance   EmergencyInsurance?
+}
+
+
+// ─── Family Bio ───────────────────────────────────────────────────────────────
+
+model FamilyMember {
+  id           String   @id @default(cuid())
+  householdId  String
+  type         String   // "PERSON" | "PET"
+  petType      String?  // "Dog", "Cat", "Bird", etc.
+  name         String
+  photoUrl     String?
+  bio          String?  @db.Text
+  birthdate    String?
+  allergies    String?  @db.Text
+  medications  String?  @db.Text
+  dislikes     String?  @db.Text
+  thingsToKnow String?  @db.Text
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, sortOrder])
+}
+
+model HouseRule {
+  id          String   @id @default(cuid())
+  householdId String
+  rule        String   @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, sortOrder])
+}
+
+
+// ─── Emergency Info ───────────────────────────────────────────────────────────
+
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  householdId  String
+  name         String
+  relationship String?
+  phone        String?
+  email        String?
+  notes        String?  @db.Text
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, sortOrder])
+}
+
+model EmergencyFacility {
+  id          String   @id @default(cuid())
+  householdId String
+  type        String   // "HOSPITAL" | "VET"
+  name        String
+  address     String?
+  phone       String?
+  distance    String?
+  notes       String?
+  isPreferred Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, sortOrder])
+}
+
+model EmergencyInsurance {
+  id           String   @id @default(cuid())
+  householdId  String   @unique
+  carrier      String?
+  policyNumber String?
+  groupNumber  String?
+  memberName   String?
+  phone        String?
+  website      String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 }
 
 model HouseholdMember {

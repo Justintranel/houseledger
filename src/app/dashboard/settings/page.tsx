@@ -25,6 +25,8 @@ export default async function SettingsPage() {
       workStart: true,
       workEnd: true,
       subscriptionStatus: true,
+      clockNotifyEmail: true,
+      clockNotifyPhone: true,
       members: {
         select: {
           id: true,
@@ -49,6 +51,8 @@ export default async function SettingsPage() {
                 ),
                 workStart: household.workStart ?? null,
                 workEnd: household.workEnd ?? null,
+                clockNotifyEmail: household.clockNotifyEmail ?? null,
+                clockNotifyPhone: household.clockNotifyPhone ?? null,
               }
             : null
         }

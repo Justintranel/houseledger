@@ -11,6 +11,8 @@ import { z } from "zod";
 import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
 import { audit } from "@/lib/audit";
 import { format } from "date-fns";
+import { sendClockInEmail, sendClockOutEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +36,17 @@ export async function POST(req: NextRequest) {
 
     const { action, notes } = parsed.data;
     const now = new Date();
+
+    // Fetch household (for name + notification settings) and worker name once
+    const [household, worker] = await Promise.all([
+      prisma.household.findUnique({
+        where: { id: auth.householdId },
+        select: { name: true, clockNotifyEmail: true, clockNotifyPhone: true },
+      }),
+      prisma.user.findUnique({ where: { id: auth.userId }, select: { name: true } }),
+    ]);
+    const workerName = worker?.name ?? "Your house manager";
+    const householdName = household?.name ?? "your household";
 
     if (action === "in") {
       // Prevent double clock-in
@@ -68,6 +81,20 @@ export async function POST(req: NextRequest) {
         note: "Clocked in",
       });
 
+      // Send notifications (fire-and-forget — don't block response)
+      const timeStr = format(now, "h:mm a");
+      if (household?.clockNotifyEmail) {
+        sendClockInEmail(household.clockNotifyEmail, workerName, timeStr, householdName).catch(
+          (e) => console.error("[clock/in] email notification failed:", e),
+        );
+      }
+      if (household?.clockNotifyPhone) {
+        sendSms(
+          household.clockNotifyPhone,
+          `⏱ ${workerName} clocked in at ${timeStr} — ${householdName}`,
+        ).catch((e) => console.error("[clock/in] SMS notification failed:", e));
+      }
+
       return NextResponse.json(entry, { status: 201 });
     } else {
       // Clock out
@@ -97,6 +124,35 @@ export async function POST(req: NextRequest) {
         after: { action: "clock_out", at: now },
         note: "Clocked out",
       });
+
+      // Send notifications (fire-and-forget)
+      if (household?.clockNotifyEmail || household?.clockNotifyPhone) {
+        const clockInStr = running.startAt ? format(running.startAt, "h:mm a") : "—";
+        const clockOutStr = format(now, "h:mm a");
+        const durationMins = running.startAt
+          ? Math.round((now.getTime() - running.startAt.getTime()) / 60000)
+          : 0;
+
+        if (household.clockNotifyEmail) {
+          sendClockOutEmail(
+            household.clockNotifyEmail,
+            workerName,
+            clockInStr,
+            clockOutStr,
+            durationMins,
+            householdName,
+          ).catch((e) => console.error("[clock/out] email notification failed:", e));
+        }
+        if (household.clockNotifyPhone) {
+          const hrs = Math.floor(durationMins / 60);
+          const mins = durationMins % 60;
+          const dur = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+          sendSms(
+            household.clockNotifyPhone,
+            `✅ ${workerName} clocked out at ${clockOutStr} (${dur} shift) — ${householdName}`,
+          ).catch((e) => console.error("[clock/out] SMS notification failed:", e));
+        }
+      }
 
       return NextResponse.json(updated);
     }

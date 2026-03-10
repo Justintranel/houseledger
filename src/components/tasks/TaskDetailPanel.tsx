@@ -32,6 +32,7 @@ export default function TaskDetailPanel({ task, role, userId, onClose, onUpdate 
   const canEdit = role !== "MANAGER";
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
+  const [category, setCategory] = useState(task.category ?? "");
   const [showRecurrence, setShowRecurrence] = useState(false);
   const [skipping, setSkipping] = useState(false);
 
@@ -39,6 +40,7 @@ export default function TaskDetailPanel({ task, role, userId, onClose, onUpdate 
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description ?? "");
+    setCategory(task.category ?? "");
     setShowRecurrence(false);
   }, [task.id]);
 
@@ -69,6 +71,10 @@ export default function TaskDetailPanel({ task, role, userId, onClose, onUpdate 
 
   const handleSaveDescription = () => {
     if (description !== (task.description ?? "")) patch({ description: description || null });
+  };
+
+  const handleSaveCategory = () => {
+    if (category !== (task.category ?? "")) patch({ category: category.trim() || null });
   };
 
   const handleSkip = async () => {
@@ -173,16 +179,26 @@ export default function TaskDetailPanel({ task, role, userId, onClose, onUpdate 
         </div>
 
         {/* Category */}
-        {task.category && (
-          <div>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-              Category
-            </label>
+        <div>
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+            Category
+          </label>
+          {canEdit ? (
+            <input
+              className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-brand-400 rounded-lg px-2 py-1.5 outline-none transition"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              onBlur={handleSaveCategory}
+              placeholder="e.g. Cleaning, Kitchen, Outdoor…"
+            />
+          ) : task.category ? (
             <span className="inline-block text-sm px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg">
               {task.category}
             </span>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-slate-400 px-2 py-1.5">No category</p>
+          )}
+        </div>
 
         {/* Duration */}
         {task.taskTemplate?.defaultDuration && (

@@ -28,6 +28,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/vendors",     icon: "🔨", label: "Vendors",          flag: "vendors",      roles: null },
       { href: "/dashboard/maintenance", icon: "🔩", label: "Maintenance",       flag: null,           roles: null },
       { href: "/dashboard/training",  icon: "🎓", label: "Training Videos",  flag: null,           roles: null },
+      { href: "/dashboard/family",    icon: "👨‍👩‍👧‍👦", label: "Family Bio",       flag: null,           roles: null },
+      { href: "/dashboard/emergency", icon: "🚨", label: "Emergency Info",    flag: null,           roles: null },
     ],
   },
   {

@@ -13,6 +13,8 @@ interface HouseholdData {
   workStart: string | null;
   workEnd: string | null;
   subscriptionStatus: string | null;
+  clockNotifyEmail: string | null;
+  clockNotifyPhone: string | null;
   members: Array<{
     id: string;
     role: string;
@@ -38,7 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function SettingsClient({ initialHousehold }: Props) {
-  const [tab, setTab] = useState<"household" | "team" | "security">("household");
+  const [tab, setTab] = useState<"household" | "team" | "notifications" | "security">("household");
 
   // ── Household tab ──────────────────────────────────────────────────────────
   const [householdName, setHouseholdName] = useState(initialHousehold?.name ?? "");
@@ -59,6 +61,13 @@ export default function SettingsClient({ initialHousehold }: Props) {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+
+  // ── Notifications tab ─────────────────────────────────────────────────────
+  const [notifyEmail, setNotifyEmail] = useState(initialHousehold?.clockNotifyEmail ?? "");
+  const [notifyPhone, setNotifyPhone] = useState(initialHousehold?.clockNotifyPhone ?? "");
+  const [notifySaving, setNotifySaving] = useState(false);
+  const [notifySaved, setNotifySaved] = useState(false);
+  const [notifyError, setNotifyError] = useState("");
 
   // ── Security tab ──────────────────────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState("");
@@ -181,6 +190,31 @@ export default function SettingsClient({ initialHousehold }: Props) {
     }
   }
 
+  async function saveNotifications(e: React.FormEvent) {
+    e.preventDefault();
+    setNotifyError("");
+    setNotifySaving(true);
+    try {
+      const res = await fetch("/api/household", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clockNotifyEmail: notifyEmail.trim() || null,
+          clockNotifyPhone: notifyPhone.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        setNotifySaved(true);
+        setTimeout(() => setNotifySaved(false), 3000);
+      } else {
+        const data = await res.json();
+        setNotifyError(data.error ?? "Failed to save.");
+      }
+    } finally {
+      setNotifySaving(false);
+    }
+  }
+
   return (
     <>
       {/* Tabs */}
@@ -189,6 +223,7 @@ export default function SettingsClient({ initialHousehold }: Props) {
           [
             ["household", "⚙️", "Household"],
             ["team", "👥", "Team Members"],
+            ["notifications", "🔔", "Notifications"],
             ["security", "🔒", "Security"],
           ] as const
         ).map(([key, icon, label]) => (
@@ -411,6 +446,72 @@ export default function SettingsClient({ initialHousehold }: Props) {
               Workers & Rates →
             </a>
           </p>
+        </div>
+      )}
+
+      {/* ── NOTIFICATIONS TAB ─────────────────────────────────────────────────── */}
+      {tab === "notifications" && (
+        <div className="max-w-2xl">
+          <form onSubmit={saveNotifications} className="card p-6 space-y-5">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800 mb-1">Clock In / Out Notifications</h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Get notified automatically whenever your house manager clocks in or out. Leave fields blank to disable.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Notification Email
+              </label>
+              <input
+                type="email"
+                value={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.value)}
+                className="input w-full"
+                placeholder="e.g. owner@example.com"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                You'll receive an email each time your manager clocks in or out.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Notification Phone (SMS / Text)
+              </label>
+              <input
+                type="text"
+                value={notifyPhone}
+                onChange={(e) => setNotifyPhone(e.target.value)}
+                className="input w-full"
+                placeholder="e.g. +12025551234 (E.164 format)"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Must be in E.164 format (e.g. <code>+12025551234</code>). Requires Twilio env vars to be configured on the server.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-amber-700 mb-1">📱 SMS Setup Required</p>
+              <p className="text-xs text-amber-600">
+                To enable text notifications, create a Twilio account at{" "}
+                <a href="https://www.twilio.com" target="_blank" rel="noopener noreferrer" className="underline">twilio.com</a>{" "}
+                and add <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, and <code>TWILIO_FROM</code> as environment variables.
+                Email notifications work without any additional setup.
+              </p>
+            </div>
+
+            {notifyError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{notifyError}</p>
+            )}
+            <div className="flex items-center gap-3 pt-1">
+              <button type="submit" disabled={notifySaving} className="btn-primary text-sm">
+                {notifySaving ? "Saving…" : "Save Notification Settings"}
+              </button>
+              {notifySaved && <span className="text-sm text-green-600 font-medium">✓ Saved!</span>}
+            </div>
+          </form>
         </div>
       )}
 

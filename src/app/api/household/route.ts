@@ -16,6 +16,8 @@ const patchSchema = z.object({
   hourlyRate: z.number().min(0).optional(),
   autoApproveUnder: z.number().min(0).optional(),
   requireApprovalOver: z.number().min(0).optional(),
+  clockNotifyEmail: z.string().email().optional().nullable(),
+  clockNotifyPhone: z.string().max(20).optional().nullable(),
 });
 
 export async function GET(req: NextRequest) {
