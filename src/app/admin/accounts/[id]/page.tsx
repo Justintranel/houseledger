@@ -58,6 +58,8 @@ export default function AdminAccountDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [resetSending, setResetSending] = useState<string | null>(null); // email of member being reset
+  const [resetFeedback, setResetFeedback] = useState<Record<string, "sent" | "error">>({});
 
   const fetchAccount = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,24 @@ export default function AdminAccountDetailPage() {
       body: JSON.stringify({ adminNote }),
     });
     setSavingNote(false);
+  }
+
+  async function sendPasswordReset(email: string) {
+    setResetSending(email);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResetFeedback((f) => ({ ...f, [email]: res.ok ? "sent" : "error" }));
+    } catch {
+      setResetFeedback((f) => ({ ...f, [email]: "error" }));
+    } finally {
+      setResetSending(null);
+      // Clear feedback after 4 seconds
+      setTimeout(() => setResetFeedback((f) => { const n = { ...f }; delete n[email]; return n; }), 4000);
+    }
   }
 
   if (loading) return <div className="p-8 text-slate-500">Loading account…</div>;
@@ -161,6 +181,20 @@ export default function AdminAccountDetailPage() {
                       {m.role}
                     </span>
                     <span className="text-xs text-slate-400">Joined {formatDate(m.joinedAt)}</span>
+                    {resetFeedback[m.email] === "sent" ? (
+                      <span className="text-xs text-green-600 font-medium">✓ Reset sent</span>
+                    ) : resetFeedback[m.email] === "error" ? (
+                      <span className="text-xs text-red-500 font-medium">✗ Failed</span>
+                    ) : (
+                      <button
+                        onClick={() => sendPasswordReset(m.email)}
+                        disabled={resetSending === m.email}
+                        title={`Send password reset to ${m.email}`}
+                        className="text-xs px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-600 transition disabled:opacity-50"
+                      >
+                        {resetSending === m.email ? "Sending…" : "🔑 Reset PW"}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
