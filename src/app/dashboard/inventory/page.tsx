@@ -43,6 +43,7 @@ export default function InventoryPage() {
   const [newUrl, setNewUrl] = useState("");
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [addError, setAddError] = useState("");
+  const [seeding, setSeeding] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -133,6 +134,62 @@ export default function InventoryPage() {
       }
     } finally {
       setAdjustingId(null);
+    }
+  }
+
+  // ── Starter items ────────────────────────────────────────────────────────
+  const STARTER_ITEMS = [
+    // Cleaning Supplies
+    { name: "Paper Towels", category: "Cleaning Supplies", unit: "roll", threshold: 4 },
+    { name: "Dish Soap", category: "Cleaning Supplies", unit: "bottle", threshold: 1 },
+    { name: "All-Purpose Cleaner", category: "Cleaning Supplies", unit: "bottle", threshold: 1 },
+    { name: "Trash Bags (Kitchen)", category: "Cleaning Supplies", unit: "box", threshold: 1 },
+    { name: "Trash Bags (Outdoor)", category: "Cleaning Supplies", unit: "box", threshold: 1 },
+    { name: "Sponges", category: "Cleaning Supplies", unit: "pack", threshold: 1 },
+    { name: "Laundry Detergent", category: "Cleaning Supplies", unit: "bottle", threshold: 1 },
+    { name: "Dryer Sheets", category: "Cleaning Supplies", unit: "box", threshold: 1 },
+    { name: "Dishwasher Pods", category: "Cleaning Supplies", unit: "box", threshold: 1 },
+    { name: "Glass Cleaner", category: "Cleaning Supplies", unit: "bottle", threshold: 1 },
+    // Bathroom
+    { name: "Toilet Paper", category: "Bathroom", unit: "roll", threshold: 8 },
+    { name: "Hand Soap", category: "Bathroom", unit: "bottle", threshold: 2 },
+    { name: "Shampoo", category: "Bathroom", unit: "bottle", threshold: 1 },
+    { name: "Conditioner", category: "Bathroom", unit: "bottle", threshold: 1 },
+    { name: "Body Wash", category: "Bathroom", unit: "bottle", threshold: 1 },
+    { name: "Toothpaste", category: "Bathroom", unit: "tube", threshold: 2 },
+    { name: "Facial Tissue", category: "Bathroom", unit: "box", threshold: 2 },
+    // Kitchen & Pantry
+    { name: "Coffee", category: "Kitchen & Pantry", unit: "bag", threshold: 1 },
+    { name: "Olive Oil", category: "Kitchen & Pantry", unit: "bottle", threshold: 1 },
+    { name: "Aluminum Foil", category: "Kitchen & Pantry", unit: "roll", threshold: 1 },
+    { name: "Plastic Wrap", category: "Kitchen & Pantry", unit: "roll", threshold: 1 },
+    { name: "Zip-Lock Bags (Quart)", category: "Kitchen & Pantry", unit: "box", threshold: 1 },
+    { name: "Zip-Lock Bags (Gallon)", category: "Kitchen & Pantry", unit: "box", threshold: 1 },
+    { name: "Bottled Water", category: "Kitchen & Pantry", unit: "case", threshold: 2 },
+    { name: "Dish Soap (Dishwasher)", category: "Kitchen & Pantry", unit: "bottle", threshold: 1 },
+    // Office & Misc
+    { name: "Printer Paper", category: "Office", unit: "ream", threshold: 1 },
+    { name: "Pens", category: "Office", unit: "pack", threshold: 1 },
+    { name: "Batteries AA", category: "Office", unit: "pack", threshold: 1 },
+    { name: "Batteries AAA", category: "Office", unit: "pack", threshold: 1 },
+    // Outdoor & Garage
+    { name: "Light Bulbs (LED)", category: "Outdoor & Garage", unit: "pack", threshold: 1 },
+    { name: "Outdoor Trash Bags", category: "Outdoor & Garage", unit: "box", threshold: 1 },
+  ];
+
+  async function seedStarterItems() {
+    setSeeding(true);
+    try {
+      for (const item of STARTER_ITEMS) {
+        await fetch("/api/inventory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item),
+        });
+      }
+      await fetchItems();
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -316,7 +373,27 @@ export default function InventoryPage() {
         <p className="text-sm text-slate-500 py-8 text-center">Loading inventory…</p>
       ) : grouped.length === 0 ? (
         <div className="card text-center py-12 text-slate-400">
-          {search ? "No items match your search." : "No inventory items yet."}
+          {search ? (
+            <p>No items match your search.</p>
+          ) : isOwner ? (
+            <div className="max-w-sm mx-auto">
+              <p className="text-4xl mb-3">📦</p>
+              <p className="font-semibold text-slate-600 mb-1">Your shopping list is empty</p>
+              <p className="text-sm text-slate-400 mb-5">
+                Add items individually, or click below to pre-populate with 31 common household essentials across Cleaning, Bathroom, Kitchen, and Office categories.
+              </p>
+              <button
+                onClick={seedStarterItems}
+                disabled={seeding}
+                className="btn-primary text-sm mx-auto"
+              >
+                {seeding ? "Adding starter items…" : "📋 Populate with Common Household Items"}
+              </button>
+              <p className="text-xs text-slate-400 mt-3">You can edit, delete, or add more items after.</p>
+            </div>
+          ) : (
+            <p>No inventory items yet.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-6">

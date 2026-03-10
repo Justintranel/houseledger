@@ -23,6 +23,7 @@ interface Member {
   name: string;
   email: string;
   role: string;
+  profileImageUrl?: string | null;
 }
 
 interface Msg {
@@ -47,6 +48,33 @@ function formatMsgTime(iso: string) {
 
 function formatFullDate(iso: string) {
   return format(new Date(iso), "MMMM d, yyyy 'at' h:mm a");
+}
+
+function Avatar({
+  name,
+  imageUrl,
+  size = "sm",
+}: {
+  name: string;
+  imageUrl?: string | null;
+  size?: "sm" | "md";
+}) {
+  const dim = size === "sm" ? "w-7 h-7 text-xs" : "w-9 h-9 text-sm";
+  const initial = name.charAt(0).toUpperCase();
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        className={`${dim} rounded-full object-cover shrink-0 border border-white/20 shadow-sm`}
+      />
+    );
+  }
+  return (
+    <div className={`${dim} rounded-full bg-brand-600 text-white flex items-center justify-center font-semibold shrink-0 shadow-sm`}>
+      {initial}
+    </div>
+  );
 }
 
 function getConversationKey(view: ActiveView): string {
@@ -296,6 +324,10 @@ export default function ChatPage() {
 
   const otherMembers = members.filter((m) => m.userId !== userId);
 
+  // Build a quick lookup: userId → member (for avatar + name display)
+  const memberMap = Object.fromEntries(members.map((m) => [m.userId, m]));
+  const myMember = userId ? memberMap[userId] : undefined;
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -397,18 +429,26 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        <div className={`flex ${isOwn ? "justify-end" : "justify-start"} ${showName ? "mt-3" : "mt-0.5"}`}>
+                        <div className={`flex items-end gap-0 ${isOwn ? "justify-end" : "justify-start"} ${showName ? "mt-3" : "mt-0.5"}`}>
                           {/* Avatar (other person) */}
                           {!isOwn && showName && (
-                            <div className="w-7 h-7 rounded-full bg-slate-300 text-white flex items-center justify-center text-xs font-semibold shrink-0 mr-2 mt-0.5">
-                              {m.sender.name.charAt(0).toUpperCase()}
+                            <div className="shrink-0 mr-2 mt-0.5">
+                              <Avatar
+                                name={m.sender.name}
+                                imageUrl={memberMap[m.sender.id]?.profileImageUrl}
+                                size="sm"
+                              />
                             </div>
                           )}
                           {!isOwn && !showName && <div className="w-7 shrink-0 mr-2" />}
+                          {isOwn && !showName && <div className="w-7 shrink-0 ml-2" />}
 
                           <div className={`max-w-[68%] flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
                             {showName && !isOwn && (
                               <p className="text-xs font-medium text-slate-500 mb-0.5 ml-1">{m.sender.name}</p>
+                            )}
+                            {showName && isOwn && (
+                              <p className="text-xs font-medium text-slate-400 mb-0.5 mr-1">You</p>
                             )}
                             <div
                               className={`px-4 py-2 rounded-2xl text-sm leading-relaxed ${
@@ -438,6 +478,17 @@ export default function ChatPage() {
                               <p className="text-xs text-brand-500 mx-1 mt-0.5">Seen</p>
                             )}
                           </div>
+
+                          {/* Own avatar (right side) */}
+                          {isOwn && showName && (
+                            <div className="shrink-0 ml-2 mb-0.5">
+                              <Avatar
+                                name={myMember?.name ?? "Me"}
+                                imageUrl={myMember?.profileImageUrl}
+                                size="sm"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -534,9 +585,7 @@ export default function ChatPage() {
                     disabled={startingDm === m.memberId}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-slate-200 hover:border-brand-400 hover:bg-brand-50 transition text-left"
                   >
-                    <div className="w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
-                      {m.name.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar name={m.name} imageUrl={m.profileImageUrl} size="md" />
                     <div>
                       <p className="text-sm font-medium text-slate-800">{m.name}</p>
                       <p className="text-xs text-slate-400">{m.role}</p>

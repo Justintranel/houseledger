@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const members = await prisma.householdMember.findMany({
       where: { householdId: hid },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
       },
       orderBy: { joinedAt: "asc" },
     });
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
         name: m.user.name,
         email: m.user.email,
         role: m.role,
+        profileImageUrl: m.user.profileImageUrl ?? null,
       }))
     );
   } catch (err) {
