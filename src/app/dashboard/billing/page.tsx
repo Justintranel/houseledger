@@ -7,6 +7,7 @@ import { format } from "date-fns";
 interface BillingData {
   accountStatus: string;
   subscriptionStatus: string | null;
+  subscriptionPlan: string | null;
   stripeSubscriptionId: string | null;
   stripeCurrentPeriodEnd: string | null;
   trialEndsAt: string | null;
@@ -32,7 +33,9 @@ function BillingPageContent() {
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [error, setError] = useState("");
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -79,6 +82,22 @@ function BillingPageContent() {
     }
   };
 
+  const handleUpgradeToAnnual = async () => {
+    setUpgradeLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/upgrade-to-annual", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to upgrade");
+      setUpgradeSuccess(true);
+      await fetchBilling(); // refresh billing data
+    } catch (e: any) {
+      setError(e.message ?? "Something went wrong");
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -89,6 +108,7 @@ function BillingPageContent() {
 
   const {
     accountStatus,
+    subscriptionPlan,
     stripeSubscriptionId,
     stripeCurrentPeriodEnd,
     trialEndsAt,
@@ -99,6 +119,8 @@ function BillingPageContent() {
   const isCanceled = accountStatus === "CANCELED" || accountStatus === "SUSPENDED";
   const isPastDue = accountStatus === "PAST_DUE";
   const isActive = accountStatus === "ACTIVE" || accountStatus === "TRIALING";
+  const isAnnual = subscriptionPlan === "annual";
+  const canUpgradeToAnnual = hasStripeSubscription && isActive && !isAnnual;
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
@@ -119,6 +141,13 @@ function BillingPageContent() {
       {trialStarted && (
         <div className="mb-6 p-4 bg-brand-50 border border-brand-200 rounded-xl text-brand-800 text-sm">
           ✅ <strong>Trial started!</strong> You have full access for 7 days. Your card will be charged $99 when the trial ends.
+        </div>
+      )}
+
+      {/* Annual upgrade success */}
+      {upgradeSuccess && (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm">
+          🎉 <strong>Upgraded to Annual!</strong> You&apos;re now on the annual plan. Any unused time from your monthly plan has been credited.
         </div>
       )}
 
@@ -191,8 +220,8 @@ function BillingPageContent() {
               </h2>
               <p className="text-sm text-slate-500">
                 {accountStatus === "TRIALING"
-                  ? `Trial ends ${formatDate(trialEndsAt ?? null)} — then $99/month`
-                  : `The House Ledger System · $99/month`}
+                  ? `Trial ends ${formatDate(trialEndsAt ?? null)} — then ${isAnnual ? "$891/year" : "$99/month"}`
+                  : `The House Ledger System · ${isAnnual ? "$891/year" : "$99/month"}`}
               </p>
             </div>
           </div>
@@ -200,7 +229,14 @@ function BillingPageContent() {
           <div className="bg-slate-50 rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">Plan</span>
-              <span className="font-medium text-slate-900">The House Ledger System</span>
+              <span className="font-medium text-slate-900 flex items-center gap-1.5">
+                The House Ledger System
+                {isAnnual && (
+                  <span className="text-xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full">
+                    Annual
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm mt-2">
               <span className="text-slate-500">
@@ -212,7 +248,9 @@ function BillingPageContent() {
             </div>
             <div className="flex items-center justify-between text-sm mt-2">
               <span className="text-slate-500">Amount</span>
-              <span className="font-medium text-slate-900">$99.00 / month</span>
+              <span className="font-medium text-slate-900">
+                {isAnnual ? "$891.00 / year" : "$99.00 / month"}
+              </span>
             </div>
           </div>
 
@@ -226,6 +264,41 @@ function BillingPageContent() {
           <p className="text-center text-xs text-slate-400 mt-2">
             Update payment method · View invoices · Cancel subscription
           </p>
+        </div>
+      )}
+
+      {/* ── Annual Upgrade Card (visible on monthly active/trialing plans) ───── */}
+      {canUpgradeToAnnual && !upgradeSuccess && (
+        <div className="mt-4 rounded-2xl border-2 border-amber-400 bg-amber-50 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">⭐</span>
+                <h3 className="font-bold text-slate-900">Upgrade to Annual — Save 25%</h3>
+              </div>
+              <p className="text-sm text-slate-600 mb-3">
+                Switch to annual billing and pay <strong>$891/year</strong> instead of $1,188 — you save{" "}
+                <strong className="text-amber-700">$297 every year</strong>. That&apos;s just $74.25/month, billed once.
+                Any unused days on your current monthly plan are credited automatically.
+              </p>
+              <ul className="text-xs text-slate-500 space-y-0.5">
+                <li>✓ Same full access — nothing changes except billing frequency</li>
+                <li>✓ 12 months before your next renewal</li>
+                <li>✓ Cancel anytime — prorated refund for unused time</li>
+              </ul>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-2xl font-bold text-amber-700">$891</div>
+              <div className="text-xs text-slate-400">/year</div>
+            </div>
+          </div>
+          <button
+            onClick={handleUpgradeToAnnual}
+            disabled={upgradeLoading}
+            className="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 px-6 rounded-xl transition disabled:opacity-60"
+          >
+            {upgradeLoading ? "Upgrading…" : "Upgrade to Annual Plan →"}
+          </button>
         </div>
       )}
 
@@ -261,15 +334,37 @@ function BillingPageContent() {
           <div className="text-5xl mb-4">😔</div>
           <h2 className="text-xl font-bold text-slate-900 mb-2">Your subscription has ended</h2>
           <p className="text-sm text-slate-500 mb-6">
-            Resubscribe to regain access to your household. All your data is still saved.
+            All your data is saved and waiting for you. Resubscribe to regain full access.
           </p>
+
+          {/* Monthly option */}
           <button
             onClick={handleCheckout}
             disabled={actionLoading}
-            className="btn-primary"
+            className="btn-primary w-full mb-3"
           >
-            {actionLoading ? "Redirecting to Stripe…" : "Resubscribe →"}
+            {actionLoading ? "Redirecting to Stripe…" : "Resubscribe Monthly — $99/mo →"}
           </button>
+
+          {/* Annual option */}
+          <div className="relative mt-2">
+            <div className="relative rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 text-left">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-900 text-sm">⭐ Annual Plan — Best Value</span>
+                <span className="text-xs bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">SAVE $297</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                $891/year · $74.25/month effective · 25% off vs monthly · 12 months of full access
+              </p>
+              <button
+                onClick={handleCheckout}
+                disabled={actionLoading}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-xl transition text-sm"
+              >
+                {actionLoading ? "Redirecting…" : "Resubscribe Annual — $891/yr →"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -287,7 +382,11 @@ function BillingPageContent() {
           },
           {
             q: "Is there a long-term contract?",
-            a: "No. It's month-to-month. No annual commitment, no cancellation fees.",
+            a: "No. It's month-to-month or year-to-year. No cancellation fees.",
+          },
+          {
+            q: "How does upgrading to annual work?",
+            a: "When you upgrade from monthly to annual, any unused days on your current billing period are automatically credited. You're charged $891 upfront and won't be billed again for 12 months.",
           },
         ].map(({ q, a }) => (
           <div key={q} className="border-b border-slate-100 py-3">

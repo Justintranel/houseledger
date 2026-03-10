@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getAllFlags } from "@/lib/flags";
 import Sidebar from "@/components/portal/Sidebar";
 import SubscriptionBanner from "@/components/portal/SubscriptionBanner";
+import PaywallOverlay from "@/components/portal/PaywallOverlay";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -14,8 +15,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Super Admin has no household — send them to the admin portal
   if ((session.user as any).isSuperAdmin) redirect("/admin");
 
-  const householdId = session.user.householdId!;
+  const householdId = session.user.householdId;
   const role = (session.user as any).role as string;
+
+  // No household yet — user registered but never completed onboarding (e.g. auto sign-in
+  // failed after signup). Querying Prisma with a null id crashes the server; send them
+  // to onboarding instead so they can finish setting up their account.
+  if (!householdId) redirect("/onboarding");
 
   const household = await prisma.household.findUnique({
     where: { id: householdId },
@@ -34,10 +40,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Managers and family members inherit the owner's subscription status.
   // Only the OWNER needs to act on billing issues.
   if (role === "OWNER" && household) {
-    const { accountStatus, stripeSubscriptionId } = household;
+    const { stripeSubscriptionId } = household;
 
-    const isCanceled = accountStatus === "CANCELED" || accountStatus === "SUSPENDED";
-    // No Stripe subscription means CC has never been collected — require payment
+    // No Stripe subscription means CC has never been collected — hard redirect to billing
     const needsPayment = !stripeSubscriptionId;
 
     // Read the current pathname via Next.js headers (set by middleware)
@@ -45,9 +50,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const pathname = headersList.get("x-invoke-path") ?? "";
     const onBillingPage = pathname.startsWith("/dashboard/billing") || pathname === "";
 
-    if ((isCanceled || needsPayment) && !onBillingPage) {
+    if (needsPayment && !onBillingPage) {
       redirect("/dashboard/billing");
     }
+    // CANCELED/SUSPENDED accounts stay in the dashboard but see the PaywallOverlay
   }
 
   // ── Determine which banner to show ─────────────────────────────────────────
@@ -72,6 +78,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  const accountStatus = household?.accountStatus ?? "TRIALING";
+  const isPaywalled =
+    role === "OWNER" &&
+    (accountStatus === "CANCELED" || accountStatus === "SUSPENDED");
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar role={role} householdName={household?.name || "My Household"} flags={flags} />
@@ -79,8 +90,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {bannerType && (
           <SubscriptionBanner type={bannerType} daysLeft={trialDaysLeft} />
         )}
-        <main className="flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto">
           {children}
+          {isPaywalled && <PaywallOverlay accountStatus={accountStatus} />}
         </main>
       </div>
     </div>

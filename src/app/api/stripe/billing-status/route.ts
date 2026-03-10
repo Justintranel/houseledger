@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       select: {
         accountStatus: true,
         subscriptionStatus: true,
+        subscriptionPlan: true,
         stripeSubscriptionId: true,
         stripeCurrentPeriodEnd: true,
         trialEndsAt: true,

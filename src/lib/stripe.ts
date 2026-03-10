@@ -6,26 +6,39 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_place
   typescript: true,
 });
 
+const PLAN_FEATURES = [
+  "Unlimited tasks & calendar",
+  "House manager + unlimited family members",
+  "Real-time chat (channels & direct messages)",
+  "House Profile — 100+ question knowledge base",
+  "House SOPs — room-by-room instructions & photos",
+  "Inventory tracking & shopping list",
+  "Purchase approvals & receipt storage",
+  "Time tracking & payroll exports",
+  "Contract e-sign (internal signature app)",
+  "Vendor directory",
+  "Notes & daily logs",
+  "All House Ledger materials included",
+];
+
 export const PLANS = {
   standard: {
     name: "The House Ledger System",
     priceId: process.env.STRIPE_PRICE_ID_STANDARD || "price_placeholder_standard",
     price: 99,
+    interval: "month" as const,
     description: "Everything you need to manage your home and your house manager — in one place.",
-    features: [
-      "Unlimited tasks & calendar",
-      "House manager + unlimited family members",
-      "Real-time chat (channels & direct messages)",
-      "House Profile — 100+ question knowledge base",
-      "House SOPs — room-by-room instructions & photos",
-      "Inventory tracking & shopping list",
-      "Purchase approvals & receipt storage",
-      "Time tracking & payroll exports",
-      "Contract e-sign (internal signature app)",
-      "Vendor directory",
-      "Notes & daily logs",
-      "All House Ledger materials included",
-    ],
+    features: PLAN_FEATURES,
+  },
+  annual: {
+    name: "The House Ledger System — Annual",
+    priceId: process.env.STRIPE_PRICE_ID_ANNUAL || "price_placeholder_annual",
+    price: 891,           // $891/year (25% off $1,188)
+    priceMonthly: 74.25,  // effective monthly rate
+    savings: 297,         // savings vs 12× monthly
+    interval: "year" as const,
+    description: "Everything included, billed once a year. Save 25% vs monthly.",
+    features: PLAN_FEATURES,
   },
 };
 
