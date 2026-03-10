@@ -49,50 +49,64 @@ export const authOptions: NextAuthOptions = {
           );
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-        });
-        if (!user) return null;
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email.toLowerCase() },
+          });
+          if (!user) return null;
+          const ok = await bcrypt.compare(credentials.password, user.passwordHash);
+          if (!ok) return null;
 
-        // Super Admin: no household membership needed
-        if (user.isSuperAdmin) {
+          // Super Admin: no household membership needed
+          if (user.isSuperAdmin) {
+            return {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: null,
+              householdId: null,
+              onboardingCompleted: true, // bypass onboarding redirect
+              isSuperAdmin: true,
+            };
+          }
+
+          // Find the user's household memberships.
+          // If they have multiple (e.g. accidentally added own email as manager during
+          // onboarding), always prefer the OWNER role to prevent access loss.
+          // NOTE: Only select the exact fields auth needs — never include: { household: true }
+          // because new Household columns added during development may not yet exist in the
+          // production DB, which would crash this query and lock out every user.
+          const memberships = await prisma.householdMember.findMany({
+            where: { userId: user.id },
+            select: {
+              role: true,
+              householdId: true,
+              household: { select: { onboardingCompleted: true } },
+            },
+            orderBy: { joinedAt: "asc" },
+          });
+
+          // Pick OWNER membership first, then FAMILY, then MANAGER
+          const rolePriority: Record<string, number> = { OWNER: 0, FAMILY: 1, MANAGER: 2 };
+          const membership = memberships.sort(
+            (a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
+          )[0] ?? null;
+
           return {
             id: user.id,
             name: user.name,
             email: user.email,
-            role: null,
-            householdId: null,
-            onboardingCompleted: true, // bypass onboarding redirect
-            isSuperAdmin: true,
+            role: membership?.role ?? null,
+            householdId: membership?.householdId ?? null,
+            onboardingCompleted: membership?.household.onboardingCompleted ?? false,
+            isSuperAdmin: false,
           };
+        } catch (err) {
+          // A DB error (e.g. missing column from a pending migration) must never
+          // silently block all logins. Log it loudly so it shows up in Railway logs.
+          console.error("[auth] authorize() threw — check DB schema sync:", err);
+          return null;
         }
-
-        // Find the user's household memberships.
-        // If they have multiple (e.g. accidentally added own email as manager during
-        // onboarding), always prefer the OWNER role to prevent access loss.
-        const memberships = await prisma.householdMember.findMany({
-          where: { userId: user.id },
-          include: { household: true },
-          orderBy: { joinedAt: "asc" },
-        });
-
-        // Pick OWNER membership first, then FAMILY, then MANAGER
-        const rolePriority: Record<string, number> = { OWNER: 0, FAMILY: 1, MANAGER: 2 };
-        const membership = memberships.sort(
-          (a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
-        )[0] ?? null;
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: membership?.role ?? null,
-          householdId: membership?.householdId ?? null,
-          onboardingCompleted: membership?.household.onboardingCompleted ?? false,
-          isSuperAdmin: false,
-        };
       },
     }),
     // Future OAuth providers go here — structure is already in place
@@ -143,7 +157,11 @@ export const authOptions: NextAuthOptions = {
         if (session?.refreshRole === true && token.id) {
           const memberships = await prisma.householdMember.findMany({
             where: { userId: token.id as string },
-            include: { household: true },
+            select: {
+              role: true,
+              householdId: true,
+              household: { select: { onboardingCompleted: true } },
+            },
             orderBy: { joinedAt: "asc" },
           });
           const rolePriority: Record<string, number> = { OWNER: 0, FAMILY: 1, MANAGER: 2 };
