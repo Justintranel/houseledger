@@ -45,10 +45,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // No Stripe subscription means CC has never been collected — hard redirect to billing
     const needsPayment = !stripeSubscriptionId;
 
-    // Read the current pathname via Next.js headers (set by middleware)
+    // Read the current pathname injected by middleware (x-pathname header).
+    // If somehow missing, default to "/dashboard" so the gate fires rather than bypasses.
     const headersList = headers();
-    const pathname = headersList.get("x-invoke-path") ?? "";
-    const onBillingPage = pathname.startsWith("/dashboard/billing") || pathname === "";
+    const pathname = headersList.get("x-pathname") ?? "/dashboard";
+    const onBillingPage = pathname.startsWith("/dashboard/billing");
 
     if (needsPayment && !onBillingPage) {
       redirect("/dashboard/billing");

@@ -27,6 +27,12 @@ export default withAuth(
     ) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
+
+    // Forward the current pathname as a request header so server components
+    // (e.g. DashboardLayout) can read it without needing client-side routing.
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-pathname", pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   },
   {
     callbacks: {
