@@ -15,7 +15,7 @@ interface Worker {
 }
 
 const WORKER_TYPE_LABELS: Record<string, string> = {
-  REGULAR:     "Regular",
+  REGULAR:     "House Manager",
   HOUSE_SITTER: "House Sitter",
   BABY_SITTER:  "Baby Sitter",
   DOG_SITTER:   "Dog Sitter",
@@ -172,7 +172,7 @@ export default function WorkersTable({ initialWorkers }: Props) {
                         {WORKER_TYPE_LABELS[w.workerType ?? ""] ?? w.workerType}
                       </span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">Regular</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">House Manager</span>
                     )}
                   </td>
 

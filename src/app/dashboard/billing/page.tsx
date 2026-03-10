@@ -36,6 +36,8 @@ function BillingPageContent() {
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [error, setError] = useState("");
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  // When returning from Stripe checkout, poll until webhook fires and subscription is set
+  const [waitingForWebhook, setWaitingForWebhook] = useState(false);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -43,16 +45,35 @@ function BillingPageContent() {
       if (!res.ok) throw new Error("Failed to load billing info");
       const data = await res.json();
       setBilling(data);
+      return data;
     } catch (e: any) {
       setError(e.message ?? "Failed to load billing info");
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchBilling();
-  }, [fetchBilling]);
+    fetchBilling().then((data) => {
+      // If coming back from Stripe (?trial=started) but subscription not in DB yet,
+      // the webhook hasn't fired yet — poll every 2s until it does (max 30s).
+      if (trialStarted && data && !data.stripeSubscriptionId) {
+        setWaitingForWebhook(true);
+        let attempts = 0;
+        const interval = setInterval(async () => {
+          attempts++;
+          const latest = await fetchBilling();
+          if (latest?.stripeSubscriptionId || attempts >= 15) {
+            clearInterval(interval);
+            setWaitingForWebhook(false);
+          }
+        }, 2000);
+        return () => clearInterval(interval);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCheckout = async () => {
     setActionLoading(true);

@@ -6,7 +6,7 @@ interface Props {
 }
 
 const WORKER_TYPE_OPTIONS = [
-  { value: "REGULAR",      label: "Regular Worker",   temp: false },
+  { value: "REGULAR",      label: "House Manager",    temp: false },
   { value: "HOUSE_SITTER", label: "House Sitter",     temp: true  },
   { value: "BABY_SITTER",  label: "Baby Sitter",      temp: true  },
   { value: "DOG_SITTER",   label: "Dog Sitter",       temp: true  },
@@ -87,7 +87,7 @@ export default function InviteWorkerForm({ onInvited }: Props) {
           <label className="text-xs font-medium text-slate-500 block mb-1">Worker Type</label>
           <select className="input text-sm" value={workerType} onChange={(e) => setWorkerType(e.target.value)}>
             <optgroup label="Permanent">
-              <option value="REGULAR">Regular Worker</option>
+              <option value="REGULAR">House Manager</option>
             </optgroup>
             <optgroup label="Temporary">
               <option value="HOUSE_SITTER">House Sitter</option>
