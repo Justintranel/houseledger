@@ -73,3 +73,31 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.householdId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const hid = session.user.householdId;
+  const role = (session.user as any).role;
+
+  if (role !== "OWNER") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const item = await prisma.inventoryItem.findFirst({
+      where: { id: params.id, householdId: hid },
+    });
+    if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    await prisma.inventoryItem.delete({ where: { id: params.id } });
+    return new NextResponse(null, { status: 204 });
+  } catch (err) {
+    console.error("[DELETE /api/inventory/[id]]", err);
+    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
+  }
+}

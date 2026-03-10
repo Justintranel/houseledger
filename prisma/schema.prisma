@@ -216,6 +216,7 @@ model Household {
   // Family Bio
   familyMembers        FamilyMember[]
   houseRules           HouseRule[]
+  workplaceContacts    WorkplaceContact[]
 
   // Emergency Info
   emergencyContacts    EmergencyContact[]
@@ -233,15 +234,69 @@ model FamilyMember {
   petType      String?  // "Dog", "Cat", "Bird", etc.
   name         String
   photoUrl     String?
-  bio          String?  @db.Text
-  birthdate    String?
-  allergies    String?  @db.Text
-  medications  String?  @db.Text
-  dislikes     String?  @db.Text
-  thingsToKnow String?  @db.Text
   sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // ── Shared (person + pet) ───────────────────────────────────────────────
+  bio          String?  @db.Text
+  birthdate    String?
+  height       String?
+  weight       String?
+  bloodType    String?
+  allergies    String?  @db.Text
+  medications  String?  @db.Text
+  dietaryRestrictions String? @db.Text
+  dislikes     String?  @db.Text
+  thingsToKnow String?  @db.Text
+  favoriteFood String?  @db.Text
+
+  // ── Person-specific: School ─────────────────────────────────────────────
+  school       String?
+  grade        String?
+  teacher      String?
+  activities   String?  @db.Text
+
+  // ── Person-specific: Medical ────────────────────────────────────────────
+  doctor       String?  // name + contact in one field
+  dentist      String?
+
+  // ── Person-specific: Travel & Documents ────────────────────────────────
+  passportNumber  String?
+  passportExpiry  String?
+  passportCountry String?
+  tsaPrecheck     String?  // Known Traveler Number (KTN)
+  globalEntry     String?
+  nexus           String?
+  frequentFlyer   String?  @db.Text  // list of programs + numbers
+  seatPreference  String?
+  mealPreference  String?
+
+  // ── Pet-specific ────────────────────────────────────────────────────────
+  breed           String?
+  vet             String?
+  microchip       String?
+  feedingSchedule String?  @db.Text
+  walkSchedule    String?  @db.Text
+  vaccinations    String?  @db.Text
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, sortOrder])
+}
+
+model WorkplaceContact {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  employer    String?
+  title       String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?  @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 

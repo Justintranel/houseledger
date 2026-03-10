@@ -33,6 +33,7 @@ export default function InventoryPage() {
   const [editingUrl, setEditingUrl] = useState<{ id: string; url: string } | null>(null);
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Add item form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -134,6 +135,17 @@ export default function InventoryPage() {
       }
     } finally {
       setAdjustingId(null);
+    }
+  }
+
+  async function deleteItem(item: InventoryItem) {
+    if (!confirm(`Remove "${item.name}" from your shopping list?`)) return;
+    setDeletingId(item.id);
+    try {
+      const res = await fetch(`/api/inventory/${item.id}`, { method: "DELETE" });
+      if (res.ok) setItems((prev) => prev.filter((i) => i.id !== item.id));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -415,6 +427,7 @@ export default function InventoryPage() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         {isOwner ? "Buy Link" : "Purchase"}
                       </th>
+                      {isOwner && <th className="w-10 px-2 py-2.5" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -471,7 +484,7 @@ export default function InventoryPage() {
                           )}
 
                           {/* Buy link */}
-                          <td className="px-4 py-2.5">
+                          <td className="px-4 py-2.5 relative">
                             {isOwner ? (
                               isEditingThis ? (
                                 <div className="flex items-center gap-2">
@@ -546,6 +559,26 @@ export default function InventoryPage() {
                               )
                             )}
                           </td>
+
+                          {/* Delete (OWNER only) */}
+                          {isOwner && (
+                            <td className="px-2 py-2.5 text-center">
+                              <button
+                                onClick={() => deleteItem(item)}
+                                disabled={deletingId === item.id}
+                                title="Delete item"
+                                className="text-slate-300 hover:text-red-500 transition disabled:opacity-40"
+                              >
+                                {deletingId === item.id ? (
+                                  <span className="text-xs">…</span>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                )}
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

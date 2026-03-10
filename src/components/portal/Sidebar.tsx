@@ -102,28 +102,6 @@ export default function Sidebar({ role, householdName, flags }: Props) {
         </span>
       </div>
 
-      {/* Quick links — Hire + Community (OWNER only, top of nav) */}
-      {role === "OWNER" && (
-        <div className="px-2 pb-1">
-          <div className="space-y-0.5">
-            <Link
-              href="/dashboard/hire"
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/hire") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
-            >
-              <span className="text-base leading-none">🤝</span> Hire a House Manager
-            </Link>
-            <a
-              href="https://www.skool.com/thehouseledger"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition"
-            >
-              <span className="text-base leading-none">👩</span> Community
-            </a>
-          </div>
-          <div className="mx-3 border-t border-white/10 mt-2" />
-        </div>
-      )}
 
       {/* Nav */}
       <nav className="flex-1 px-2 pb-3">
@@ -171,58 +149,77 @@ export default function Sidebar({ role, householdName, flags }: Props) {
           );
         })}
 
-        {(role === "OWNER" || role === "FAMILY") && (
-          <>
-            <div className="mx-3 border-t border-white/10 mb-1 mt-1" />
-            <div className="pt-3 pb-1 px-3">
-              <span className="text-xs font-semibold text-white/30 uppercase tracking-wider">Admin</span>
-            </div>
-            <div className="space-y-0.5">
-              {ADMIN_NAV.map((item) => {
-                if (item.href === "/dashboard/settings" && role !== "OWNER") return null;
-                if (item.href === "/dashboard/hire" && role !== "OWNER") return null;
-                if (item.href === "/dashboard/billing" && role !== "OWNER") return null;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${active ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
-                  >
-                    <span className="text-base leading-none">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </>
-        )}
       </nav>
 
-      {/* Support + My Profile */}
-      <div className="px-2 pb-2 border-t border-white/10 pt-3 space-y-0.5">
+      {/* ── Bottom nav ──────────────────────────────────────────────── */}
+      <div className="px-2 border-t border-white/10 pt-3 pb-2 space-y-0.5">
+
+        {/* My Profile */}
         <Link
           href="/dashboard/account"
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/account") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
         >
           <span>👤</span> My Profile
         </Link>
+
+        {/* Admin: Settings + Billing (OWNER only) */}
+        {role === "OWNER" && (
+          <>
+            <div className="px-3 pt-2 pb-0.5">
+              <span className="text-xs font-semibold text-white/30 uppercase tracking-wider">Admin</span>
+            </div>
+            <Link
+              href="/dashboard/settings"
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/settings") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            >
+              <span>⚙️</span> Settings
+            </Link>
+            <Link
+              href="/dashboard/billing"
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/billing") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            >
+              <span>💰</span> Billing
+            </Link>
+          </>
+        )}
+
+        {/* Sign Out (right after Admin) */}
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/50 hover:bg-white/10 hover:text-white transition"
+        >
+          <span>🚪</span> Sign Out
+        </button>
+
+        {/* Hire + Community (OWNER only) */}
+        {role === "OWNER" && (
+          <>
+            <div className="mx-3 border-t border-white/10 my-1" />
+            <Link
+              href="/dashboard/hire"
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/hire") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
+            >
+              <span>🤝</span> Hire a House Manager
+            </Link>
+            <a
+              href="https://www.skool.com/thehouseledger"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition"
+            >
+              <span>👩</span> Community
+            </a>
+          </>
+        )}
+
+        {/* Get Support — very bottom */}
+        <div className="mx-3 border-t border-white/10 my-1" />
         <Link
           href="/dashboard/support"
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/support") ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"}`}
         >
           <span>🎫</span> Get Support
         </Link>
-      </div>
-
-      {/* Sign out */}
-      <div className="px-2 pb-4 border-t border-white/10 pt-3">
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-white/50 hover:bg-white/10 hover:text-white transition"
-        >
-          <span>🚪</span> Sign out
-        </button>
       </div>
     </aside>
   );
