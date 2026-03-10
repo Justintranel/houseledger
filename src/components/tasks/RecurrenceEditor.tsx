@@ -146,23 +146,58 @@ export default function RecurrenceEditor({ taskId, currentType, onSaved, onCance
 
       {/* Seasonal — months */}
       {type === "SEASONAL" && (
-        <div>
-          <label className="text-xs font-semibold text-slate-500 block mb-1.5">In months</label>
-          <div className="flex flex-wrap gap-1">
-            {MONTH_LABELS.map((label, i) => (
-              <button
-                key={i + 1}
-                type="button"
-                onClick={() => toggleMonth(i + 1)}
-                className={`px-2 py-1 rounded-lg text-xs font-medium transition ${
-                  months.includes(i + 1)
-                    ? "bg-brand-600 text-white"
-                    : "bg-white border border-slate-200 text-slate-600 hover:border-brand-400"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="space-y-3">
+          {/* Quick presets */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Quick presets</label>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: "Quarterly", months: [1, 4, 7, 10], hint: "Jan · Apr · Jul · Oct" },
+                { label: "Semi-Annual", months: [1, 7], hint: "Jan · Jul" },
+                { label: "Annual", months: [1], hint: "Jan only" },
+                { label: "All 4 Seasons", months: [3, 6, 9, 12], hint: "Mar · Jun · Sep · Dec" },
+              ].map((preset) => {
+                const active =
+                  months.length === preset.months.length &&
+                  preset.months.every((m) => months.includes(m));
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.hint}
+                    onClick={() => setMonths(preset.months)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition border ${
+                      active
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-brand-400"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Manual month picker */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Or pick months manually</label>
+            <div className="flex flex-wrap gap-1">
+              {MONTH_LABELS.map((label, i) => (
+                <button
+                  key={i + 1}
+                  type="button"
+                  onClick={() => toggleMonth(i + 1)}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition ${
+                    months.includes(i + 1)
+                      ? "bg-brand-600 text-white"
+                      : "bg-white border border-slate-200 text-slate-600 hover:border-brand-400"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
