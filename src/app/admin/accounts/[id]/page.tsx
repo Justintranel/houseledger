@@ -244,6 +244,16 @@ export default function AdminAccountDetailPage() {
           <div className="card p-5">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">⚡ Admin Actions</h2>
             <div className="space-y-2">
+              {/* Sync from Stripe — always available if subscription ID exists */}
+              {account.stripeSubscriptionId && (
+                <button
+                  onClick={() => applyAction("SYNC_STRIPE")}
+                  disabled={actionLoading}
+                  className="w-full text-sm px-3 py-2.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-xl hover:bg-brand-100 font-medium transition disabled:opacity-50"
+                >
+                  🔄 Sync Status from Stripe
+                </button>
+              )}
               {account.accountStatus !== "SUSPENDED" && account.accountStatus !== "CANCELED" && (
                 <button
                   onClick={async () => {

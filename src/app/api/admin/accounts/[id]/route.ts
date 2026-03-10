@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { stripe } from "@/lib/stripe";
 import { z } from "zod";
 import { requireSuperAdmin, AdminAuthError } from "@/server/auth/requireSuperAdmin";
+
+/** Map Stripe subscription status → our AccountStatus enum value */
+function mapStripeStatus(s: string): string {
+  const map: Record<string, string> = {
+    active: "ACTIVE",
+    trialing: "TRIALING",
+    past_due: "PAST_DUE",
+    unpaid: "UNPAID",
+    canceled: "CANCELED",
+    paused: "SUSPENDED",
+    incomplete: "TRIALING",
+    incomplete_expired: "CANCELED",
+  };
+  return map[s] ?? "ACTIVE";
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +71,7 @@ const patchSchema = z.object({
   suspendedReason: z.string().max(1000).optional().nullable(),
   adminNote: z.string().max(5000).optional().nullable(),
   billingEmail: z.string().email().optional().nullable(),
-  action: z.enum(["SUSPEND", "REACTIVATE", "CANCEL", "EXTEND_TRIAL"]).optional(),
+  action: z.enum(["SUSPEND", "REACTIVATE", "CANCEL", "EXTEND_TRIAL", "SYNC_STRIPE"]).optional(),
 });
 
 // PATCH — update account status / admin controls
@@ -100,6 +116,20 @@ export async function PATCH(
       newEnd.setDate(newEnd.getDate() + 14);
       updateData.trialEndsAt = newEnd;
       updateData.accountStatus = "TRIALING";
+    } else if (action === "SYNC_STRIPE") {
+      // Pull live subscription status directly from Stripe and update the DB
+      if (!household.stripeSubscriptionId) {
+        return NextResponse.json(
+          { error: "This account has no Stripe subscription ID linked." },
+          { status: 422 }
+        );
+      }
+      const sub = await stripe.subscriptions.retrieve(household.stripeSubscriptionId);
+      updateData.subscriptionStatus = sub.status;
+      updateData.accountStatus = mapStripeStatus(sub.status);
+      updateData.stripeCurrentPeriodEnd = new Date(sub.current_period_end * 1000);
+      if (sub.trial_end) updateData.trialEndsAt = new Date(sub.trial_end * 1000);
+      if (sub.status === "active") { updateData.pastDueAt = null; updateData.suspendedAt = null; }
     }
 
     // Apply explicit field overrides
