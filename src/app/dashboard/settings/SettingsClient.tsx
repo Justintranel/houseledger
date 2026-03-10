@@ -488,17 +488,14 @@ export default function SettingsClient({ initialHousehold }: Props) {
                 placeholder="e.g. +12025551234 (E.164 format)"
               />
               <p className="text-xs text-slate-400 mt-1">
-                Must be in E.164 format (e.g. <code>+12025551234</code>). Requires Twilio env vars to be configured on the server.
+                Enter your mobile number in E.164 format (e.g. <code>+12025551234</code>). You'll receive a text from The House Ledger notification number each time your manager clocks in or out.
               </p>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-xs font-semibold text-amber-700 mb-1">📱 SMS Setup Required</p>
-              <p className="text-xs text-amber-600">
-                To enable text notifications, create a Twilio account at{" "}
-                <a href="https://www.twilio.com" target="_blank" rel="noopener noreferrer" className="underline">twilio.com</a>{" "}
-                and add <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, and <code>TWILIO_FROM</code> as environment variables.
-                Email notifications work without any additional setup.
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-green-700 mb-1">📱 SMS is included — no setup needed</p>
+              <p className="text-xs text-green-700">
+                Text notifications are sent from The House Ledger's centralized number. Just enter your phone number above and save — that's it.
               </p>
             </div>
 
