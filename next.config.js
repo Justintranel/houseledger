@@ -1,3 +1,6 @@
+// @ts-check
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 
 const securityHeaders = [
@@ -14,12 +17,13 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 'unsafe-eval' required by Next.js dev mode
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://*.amazonaws.com",
       "font-src 'self'",
-      "connect-src 'self'",
+      "connect-src 'self' https://*.sentry.io https://*.ingest.sentry.io",
       "frame-ancestors 'none'",
+      "worker-src blob:",
     ].join("; "),
   },
 ];
@@ -35,7 +39,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Apply security headers to all routes
         source: "/(.*)",
         headers: securityHeaders,
       },
@@ -43,4 +46,21 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  // Sentry webpack plugin options
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Upload source maps to Sentry for readable stack traces
+  silent: true,
+  widenClientFileUpload: true,
+
+  // Hides Sentry's own source maps from the browser
+  hideSourceMaps: true,
+
+  // Disable Sentry telemetry
+  telemetry: false,
+
+  // Automatically tree-shake Sentry logger statements in production
+  disableLogger: true,
+});
