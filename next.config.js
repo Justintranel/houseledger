@@ -46,21 +46,17 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
-  // Sentry webpack plugin options
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+// Only wrap with Sentry if DSN is configured — prevents build failures before Sentry is set up
+const hasSentry = process.env.NEXT_PUBLIC_SENTRY_DSN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT;
 
-  // Upload source maps to Sentry for readable stack traces
-  silent: true,
-  widenClientFileUpload: true,
-
-  // Hides Sentry's own source maps from the browser
-  hideSourceMaps: true,
-
-  // Disable Sentry telemetry
-  telemetry: false,
-
-  // Automatically tree-shake Sentry logger statements in production
-  disableLogger: true,
-});
+module.exports = hasSentry
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      silent: true,
+      widenClientFileUpload: true,
+      hideSourceMaps: true,
+      telemetry: false,
+      disableLogger: true,
+    })
+  : nextConfig;
