@@ -4,6 +4,29 @@ import { z } from "zod";
 import { requireHouseholdRole, AuthError } from "@/server/auth/requireHouseholdRole";
 import { can } from "@/lib/permissions";
 
+// DELETE /api/profile/answer?questionId=xxx — clears a household's answer (e.g. undo N/A)
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await requireHouseholdRole();
+    if (!can(auth.role, "houseprofile:write"))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const questionId = req.nextUrl.searchParams.get("questionId");
+    if (!questionId) return NextResponse.json({ error: "questionId is required" }, { status: 400 });
+
+    await prisma.houseProfileAnswer.deleteMany({
+      where: { householdId: auth.householdId, questionId },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    if (err instanceof AuthError)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode });
+    console.error("[DELETE /api/profile/answer]", err);
+    return NextResponse.json({ error: "Failed to clear answer" }, { status: 500 });
+  }
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
