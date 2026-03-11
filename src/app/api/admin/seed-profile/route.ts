@@ -10,8 +10,9 @@ export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!(session?.user as any)?.isSuperAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const role = (session?.user as any)?.role as string | undefined;
+  if (!session || role !== "OWNER") {
+    return NextResponse.json({ error: "Forbidden — must be logged in as OWNER" }, { status: 403 });
   }
 
   let upserted = 0;
