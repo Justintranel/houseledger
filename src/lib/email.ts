@@ -581,3 +581,43 @@ export async function sendWeeklySummaryEmail(data: WeeklySummaryData) {
     ),
   });
 }
+
+// ─── Recruit For Me — internal notification ────────────────────────────────
+
+export async function sendRecruitRequestEmail(
+  ownerEmail: string,
+  ownerName: string,
+  responses: Record<string, string>,
+) {
+  const rows = Object.entries(responses)
+    .filter(([, v]) => v && v.trim())
+    .map(
+      ([q, a]) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:600;color:#475569;width:40%;vertical-align:top;">${q}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#1e293b;vertical-align:top;">${a}</td>
+        </tr>`,
+    )
+    .join("");
+
+  await getResend().emails.send({
+    from: getFrom(),
+    to: "support@thehouseledger.com",
+    replyTo: ownerEmail,
+    subject: `🔍 New Recruit Request — ${ownerName}`,
+    html: layout(
+      "New Recruit Request",
+      `<h2 style="font-size:20px;font-weight:700;color:#1d3557;margin:0 0 4px;">New Recruit For Me Request</h2>
+       <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Submitted by <strong>${ownerName}</strong> (${ownerEmail})</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+         <thead>
+           <tr style="background:#f8fafc;">
+             <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;">Question</th>
+             <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;">Answer</th>
+           </tr>
+         </thead>
+         <tbody>${rows}</tbody>
+       </table>`,
+    ),
+  });
+}
