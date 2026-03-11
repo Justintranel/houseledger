@@ -3,13 +3,14 @@ import { useState } from "react";
 import Link from "next/link";
 import WeeklyTimesheet from "@/components/time/WeeklyTimesheet";
 import PayoutSummary from "@/components/time/PayoutSummary";
+import ClockNotificationSettings from "@/components/time/ClockNotificationSettings";
 
 interface Props {
   role: string;
   userId: string;
 }
 
-type Tab = "timesheet" | "payouts";
+type Tab = "timesheet" | "payouts" | "notifications";
 
 export default function TimePageClient({ role, userId }: Props) {
   const [tab, setTab] = useState<Tab>("timesheet");
@@ -52,10 +53,19 @@ export default function TimePageClient({ role, userId }: Props) {
             Weekly Payouts
           </button>
         )}
+        {role === "OWNER" && (
+          <button
+            onClick={() => setTab("notifications")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${tab === "notifications" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          >
+            🔔 Notifications
+          </button>
+        )}
       </div>
 
       {tab === "timesheet" && <WeeklyTimesheet role={role} userId={userId} />}
       {tab === "payouts" && canSeePayout && <PayoutSummary role={role} />}
+      {tab === "notifications" && role === "OWNER" && <ClockNotificationSettings />}
     </div>
   );
 }
