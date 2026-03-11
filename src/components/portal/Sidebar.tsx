@@ -27,9 +27,9 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/sop",       icon: "📖", label: "House SOPs",       flag: null,           roles: null },
       { href: "/dashboard/vendors",     icon: "🔨", label: "Vendors",          flag: "vendors",      roles: null },
       { href: "/dashboard/maintenance", icon: "🔩", label: "Maintenance",       flag: null,           roles: null },
-      { href: "/dashboard/training",  icon: "🎓", label: "Training Videos",  flag: null,           roles: null },
       { href: "/dashboard/family",    icon: "👨‍👩‍👧‍👦", label: "Family Bio",       flag: null,           roles: null },
       { href: "/dashboard/emergency", icon: "🚨", label: "Emergency Info",    flag: null,           roles: null },
+      { href: "/dashboard/training",  icon: "🎓", label: "Training Videos",  flag: null,           roles: null },
       { href: "/dashboard/house-bible", icon: "📚", label: "House Ledger",     flag: null,           roles: null },
     ],
   },
@@ -49,7 +49,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Compliance",
+    label: "Compliance / Review",
     items: [
       { href: "/dashboard/time",               icon: "⏱️",  label: "Timesheet",           flag: "timetracking", roles: null },
       { href: "/dashboard/time/clock",         icon: "⏲️",  label: "Clock In/Out",         flag: "timetracking", roles: ["MANAGER"] },
@@ -113,7 +113,13 @@ export default function Sidebar({ role, householdName, flags, communityLabel, co
             href="/dashboard/hire"
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/hire") ? "bg-white/15 text-white font-medium" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
           >
-            <span>🤝</span> Hire a House Manager
+            <span>🤝</span> Hire Manager
+          </Link>
+          <Link
+            href="/dashboard/hire/recruit"
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${isActive("/dashboard/hire/recruit") ? "bg-white/15 text-white font-medium" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+          >
+            <span>🔍</span> Recruit For Me
           </Link>
           <a
             href={communityUrl || "https://www.skool.com/thehouseledger"}
