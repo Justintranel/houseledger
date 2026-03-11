@@ -21,6 +21,12 @@ export async function POST(req: NextRequest) {
   const householdId = session.user.householdId;
   const userId = (session.user as any).id as string;
 
+  // Read optional Rewardful referral ID from request body (sent by the billing page)
+  const body = await req.json().catch(() => ({}));
+  const referralId = typeof body.referralId === "string" && body.referralId
+    ? body.referralId
+    : undefined;
+
   try {
     // Check if already actively subscribed
     const household = await prisma.household.findUnique({
@@ -53,6 +59,7 @@ export async function POST(req: NextRequest) {
     const checkoutSession = await createBillingCheckoutSession({
       email: user.email,
       householdId,
+      referralId,
       // Send to billing page so the webhook-pending state is handled gracefully.
       // The billing page polls for subscription activation and shows feedback.
       successUrl: `${appUrl}/dashboard/billing?trial=started`,

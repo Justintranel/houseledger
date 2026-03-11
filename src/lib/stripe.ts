@@ -46,17 +46,21 @@ export const PLANS = {
  * Create a Stripe Checkout Session for a new subscription.
  * Supports 50% discount via promo code OR eligibility token.
  * (Legacy — used by pre-auth signup flow.)
+ *
+ * Pass referralId from Rewardful so affiliate commissions are attributed.
  */
 export async function createCheckoutSession({
   email,
   planId,
   promoCode,
+  referralId,
   successUrl,
   cancelUrl,
 }: {
   email: string;
   planId: "standard";
   promoCode?: string;
+  referralId?: string;  // Rewardful affiliate referral ID
   successUrl: string;
   cancelUrl: string;
 }) {
@@ -85,6 +89,8 @@ export async function createCheckoutSession({
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { planId },
+    // Rewardful reads client_reference_id to attribute commissions to affiliates
+    ...(referralId ? { client_reference_id: referralId } : {}),
   });
 
   return session;
@@ -93,15 +99,22 @@ export async function createCheckoutSession({
 /**
  * Create a Stripe Checkout Session for an authenticated household owner.
  * Includes a 7-day free trial with card capture — auto-converts to $99/month.
+ *
+ * When an affiliate referral is active, client_reference_id is set to the
+ * Rewardful referral ID so Rewardful can attribute the commission automatically
+ * via Stripe webhook events. householdId is always preserved in metadata so
+ * our webhook handler is unaffected (it checks metadata.householdId first).
  */
 export async function createBillingCheckoutSession({
   email,
   householdId,
+  referralId,
   successUrl,
   cancelUrl,
 }: {
   email: string;
   householdId: string;
+  referralId?: string;  // Rewardful affiliate referral ID
   successUrl: string;
   cancelUrl: string;
 }) {
@@ -118,7 +131,9 @@ export async function createBillingCheckoutSession({
     payment_method_collection: "always", // capture card even during trial
     allow_promotion_codes: true,
     metadata: { householdId },
-    client_reference_id: householdId,
+    // Rewardful reads client_reference_id to attribute commissions.
+    // householdId stays in metadata so our webhook always finds it there first.
+    client_reference_id: referralId || householdId,
     success_url: successUrl,
     cancel_url: cancelUrl,
   });

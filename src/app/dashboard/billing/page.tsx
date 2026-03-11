@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { getRewardfulReferral } from "@/lib/rewardful";
 import { format } from "date-fns";
 
 interface BillingData {
@@ -79,7 +80,13 @@ function BillingPageContent() {
     setActionLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      // Pass Rewardful referral ID if visitor arrived via an affiliate link
+      const referralId = getRewardfulReferral();
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referralId }),
+      });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error ?? "Failed to start checkout");
       window.location.href = data.url;

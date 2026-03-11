@@ -9,6 +9,7 @@ const schema = z.object({
   email: z.string().email("Invalid email"),
   planId: z.string().min(1, "Plan ID is required"),
   promoCode: z.string().optional(),
+  referralId: z.string().optional(), // Rewardful affiliate referral ID
 });
 
 export async function POST(req: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, planId, promoCode } = parsed.data;
+    const { email, planId, promoCode, referralId } = parsed.data;
 
     const baseUrl =
       process.env.NEXTAUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       email,
       planId: planId as "standard",
       promoCode,
+      referralId,
       successUrl: `${baseUrl}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/signup`,
     });
