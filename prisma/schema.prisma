@@ -135,6 +135,7 @@ model User {
   ticketComments        TicketComment[]
   adminAuditLogs        AdminAuditLog[]
   passwordResetTokens   PasswordResetToken[]
+  dripEmails            DripEmail[]
 }
 
 // ─── Household (Tenant) ───────────────────────────────────────────────────────
@@ -1167,6 +1168,19 @@ model VehicleService {
   createdAt      DateTime  @default(now())
 
   vehicle        Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+// ─── Drip Email Tracking ───────────────────────────────────────────────────────
+
+model DripEmail {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    Int      // 1–7 — which day of the onboarding sequence
+  sentAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
 }
 
 // ─── Password Reset ────────────────────────────────────────────────────────────
