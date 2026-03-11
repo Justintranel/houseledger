@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 
 const SECTIONS = [
@@ -82,12 +82,12 @@ export default function RecruitForMePage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const errorRef = useRef<HTMLDivElement>(null);
 
   function setAnswer(question: string, value: string) {
     setAnswers((prev) => ({ ...prev, [question]: value }));
   }
 
-  // Count filled questions
   const totalQuestions = SECTIONS.flatMap((s) => s.questions).length;
   const answeredQuestions = Object.values(answers).filter((v) => v.trim()).length;
   const pct = Math.round((answeredQuestions / totalQuestions) * 100);
@@ -96,9 +96,10 @@ export default function RecruitForMePage() {
     e.preventDefault();
     setError("");
 
-    // Require at least 20 answers
-    if (answeredQuestions < 20) {
-      setError("Please answer at least 20 questions so we can find the best match for you.");
+    if (answeredQuestions < 10) {
+      const msg = "Please answer at least 10 questions so we can find the best match for your household.";
+      setError(msg);
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
       return;
     }
 
@@ -117,13 +118,14 @@ export default function RecruitForMePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
+        setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
         return;
       }
 
-      // Redirect to Stripe
       window.location.href = data.url;
     } catch {
       setError("Network error — please try again.");
+      setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
     } finally {
       setSubmitting(false);
     }
@@ -133,10 +135,40 @@ export default function RecruitForMePage() {
     <div className="p-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Recruit For Me</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Recruitment Done For You</h1>
         <p className="text-slate-500 text-sm mt-1">
           Tell us about your household and we'll find, screen, and place your ideal house manager.
         </p>
+      </div>
+
+      {/* Self-hire note */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-6">
+        <p className="text-sm font-semibold text-amber-800 mb-1">💡 Did you know?</p>
+        <p className="text-sm text-amber-700 leading-relaxed">
+          Over <strong>50% of our members successfully recruit their own house manager</strong> using the step-by-step process under{" "}
+          <a href="/dashboard/hire" className="underline font-semibold hover:text-amber-900">
+            Hire Manager
+          </a>
+          . Our done-for-you recruitment is ideal for owners who want the entire search handled professionally — but it is{" "}
+          <strong>not a staffing agency</strong>. We manage the sourcing, vetting, and placement process on your behalf.
+        </p>
+      </div>
+
+      {/* Video placeholder */}
+      <div className="card mb-6 overflow-hidden">
+        <div className="bg-slate-900 aspect-video flex flex-col items-center justify-center gap-3 rounded-t-xl">
+          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-white/60" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+          <p className="text-white/40 text-sm">Video coming soon — How Recruitment Done For You works</p>
+        </div>
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200">
+          <p className="text-xs text-slate-400">
+            Upload your explainer video here to walk owners through the recruitment process.
+          </p>
+        </div>
       </div>
 
       {/* Service overview card */}
@@ -164,7 +196,7 @@ export default function RecruitForMePage() {
               ))}
             </div>
           </div>
-          <div className="sm:text-right">
+          <div className="sm:text-right shrink-0">
             <div className="text-3xl font-bold text-brand-700">$5,000</div>
             <div className="text-xs text-slate-400 mt-1">one-time placement fee</div>
           </div>
@@ -172,23 +204,17 @@ export default function RecruitForMePage() {
 
         {/* Timeline */}
         <div className="mt-5 pt-4 border-t border-brand-200">
-          <p className="text-xs font-semibold text-brand-700 mb-2">⏱ What to expect</p>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+          <p className="text-xs font-semibold text-brand-700 mb-3">⏱ What to expect — 4 to 6 weeks</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { week: "Week 1", label: "Intake & sourcing kickoff" },
               { week: "Weeks 2–3", label: "Screening & interviews" },
-              { week: "Weeks 4–5", label: "Background checks & references" },
+              { week: "Weeks 4–5", label: "Background & references" },
               { week: "Week 6", label: "Offer, hire & onboarding" },
             ].map((step, i) => (
-              <div key={i} className="flex sm:flex-col items-center gap-2 sm:gap-1 flex-1 text-center">
-                <div className="w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                  {i + 1}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-brand-800">{step.week}</p>
-                  <p className="text-xs text-slate-500">{step.label}</p>
-                </div>
-                {i < 3 && <div className="hidden sm:block flex-1 h-px bg-brand-200 mx-1" />}
+              <div key={i} className="bg-white rounded-lg border border-brand-200 px-3 py-2.5 text-center">
+                <div className="text-xs font-bold text-brand-700">{step.week}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{step.label}</div>
               </div>
             ))}
           </div>
@@ -198,8 +224,8 @@ export default function RecruitForMePage() {
       {/* Progress bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-sm font-medium text-slate-700">Form progress</p>
-          <p className="text-sm text-slate-500">{answeredQuestions} / {totalQuestions} questions answered</p>
+          <p className="text-sm font-medium text-slate-700">Intake form progress</p>
+          <p className="text-sm text-slate-500">{answeredQuestions} / {totalQuestions} answered</p>
         </div>
         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
@@ -207,6 +233,9 @@ export default function RecruitForMePage() {
             style={{ width: `${pct}%` }}
           />
         </div>
+        {answeredQuestions < 10 && (
+          <p className="text-xs text-slate-400 mt-1">Answer at least 10 questions to submit.</p>
+        )}
       </div>
 
       {/* Form */}
@@ -239,11 +268,13 @@ export default function RecruitForMePage() {
             Our team will contact you within 1 business day to kick off your search.
           </p>
 
-          {error && (
-            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-              {error}
-            </div>
-          )}
+          <div ref={errorRef}>
+            {error && (
+              <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-300 rounded-lg px-4 py-3 font-medium">
+                ⚠️ {error}
+              </div>
+            )}
+          </div>
 
           <button
             type="submit"
@@ -263,7 +294,7 @@ export default function RecruitForMePage() {
             )}
           </button>
           <p className="text-xs text-slate-400 mt-3">
-            Secured by Stripe. Your answers are sent to our team immediately.
+            Secured by Stripe. Your answers are sent to our team immediately upon payment.
           </p>
         </div>
       </form>

@@ -8,7 +8,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const QUESTIONS = [
+export const QUESTIONS = [
   // ── General — Structural ─────────────────────────────────────────────────────
   { id: "hpq-001", category: "General", sortOrder: 10, ownerOnly: false, prompt: "Year the home was built" },
   { id: "hpq-002", category: "General", sortOrder: 11, ownerOnly: false, prompt: "Total finished square footage" },
