@@ -71,6 +71,9 @@ const patchSchema = z.object({
   suspendedReason: z.string().max(1000).optional().nullable(),
   adminNote: z.string().max(5000).optional().nullable(),
   billingEmail: z.string().email().optional().nullable(),
+  // Community tab branding
+  communityLabel: z.string().max(80).optional().nullable(),
+  communityUrl: z.string().url().max(500).optional().nullable(),
   action: z.enum(["SUSPEND", "REACTIVATE", "CANCEL", "EXTEND_TRIAL", "SYNC_STRIPE"]).optional(),
 });
 
@@ -137,6 +140,8 @@ export async function PATCH(
     if (rest.trialEndsAt !== undefined) updateData.trialEndsAt = rest.trialEndsAt ? new Date(rest.trialEndsAt) : null;
     if (rest.adminNote !== undefined) updateData.adminNote = rest.adminNote;
     if (rest.billingEmail !== undefined) updateData.billingEmail = rest.billingEmail;
+    if (rest.communityLabel !== undefined) updateData.communityLabel = rest.communityLabel || null;
+    if (rest.communityUrl !== undefined) updateData.communityUrl = rest.communityUrl || null;
 
     const before = {
       accountStatus: household.accountStatus,

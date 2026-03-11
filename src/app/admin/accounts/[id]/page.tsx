@@ -26,6 +26,8 @@ interface Account {
   canceledAt: string | null;
   adminNote: string | null;
   onboardingCompleted: boolean;
+  communityLabel: string | null;
+  communityUrl: string | null;
   members: Member[];
   supportTickets: TicketSnip[];
   _count: { taskInstances: number; timeEntries: number; supportTickets: number };
@@ -58,6 +60,10 @@ export default function AdminAccountDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [communityLabel, setCommunityLabel] = useState("");
+  const [communityUrl, setCommunityUrl] = useState("");
+  const [savingCommunity, setSavingCommunity] = useState(false);
+  const [communitySaved, setCommunitySaved] = useState(false);
   const [resetSending, setResetSending] = useState<string | null>(null); // email of member being reset
   const [resetFeedback, setResetFeedback] = useState<Record<string, "sent" | "error">>({});
 
@@ -68,6 +74,8 @@ export default function AdminAccountDetailPage() {
       const data = await res.json();
       setAccount(data);
       setAdminNote(data.adminNote ?? "");
+      setCommunityLabel(data.communityLabel ?? "");
+      setCommunityUrl(data.communityUrl ?? "");
     }
     setLoading(false);
   }, [id]);
@@ -93,6 +101,23 @@ export default function AdminAccountDetailPage() {
       body: JSON.stringify({ adminNote }),
     });
     setSavingNote(false);
+  }
+
+  async function saveCommunity() {
+    setSavingCommunity(true);
+    const res = await fetch(`/api/admin/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        communityLabel: communityLabel.trim() || null,
+        communityUrl: communityUrl.trim() || null,
+      }),
+    });
+    setSavingCommunity(false);
+    if (res.ok) {
+      setCommunitySaved(true);
+      setTimeout(() => setCommunitySaved(false), 3000);
+    }
   }
 
   async function sendPasswordReset(email: string) {
@@ -317,6 +342,63 @@ export default function AdminAccountDetailPage() {
             >
               {savingNote ? "Saving…" : "Save Note"}
             </button>
+          </div>
+
+          {/* Community Tab Branding */}
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold text-slate-700 mb-1">👩 Community Tab</h2>
+            <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+              Customize the Community link in this owner&apos;s sidebar. Useful when a coach refers their clients — set a custom label and link pointing to their group.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Tab Label</label>
+                <input
+                  type="text"
+                  value={communityLabel}
+                  onChange={(e) => setCommunityLabel(e.target.value)}
+                  className="input w-full text-sm"
+                  placeholder='e.g. "Coaching Community" (blank = "Community")'
+                  maxLength={80}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Community URL</label>
+                <input
+                  type="url"
+                  value={communityUrl}
+                  onChange={(e) => setCommunityUrl(e.target.value)}
+                  className="input w-full text-sm"
+                  placeholder="https://skool.com/yourgroup (blank = default)"
+                  maxLength={500}
+                />
+              </div>
+              {(communityLabel || communityUrl) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500">
+                  <span className="font-medium text-slate-600">Preview:</span>{" "}
+                  Sidebar will show <span className="font-semibold text-slate-700">&quot;{communityLabel || "Community"}&quot;</span>
+                  {" "}→ <span className="text-brand-600 truncate">{communityUrl || "https://www.skool.com/thehouseledger"}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveCommunity}
+                  disabled={savingCommunity}
+                  className="btn-primary text-sm w-full disabled:opacity-50"
+                >
+                  {savingCommunity ? "Saving…" : "Save Community Tab"}
+                </button>
+                {communitySaved && <span className="text-xs text-emerald-600 font-medium whitespace-nowrap">✓ Saved</span>}
+              </div>
+              {(communityLabel || communityUrl) && (
+                <button
+                  onClick={() => { setCommunityLabel(""); setCommunityUrl(""); }}
+                  className="text-xs text-slate-400 hover:text-slate-600 transition w-full text-left"
+                >
+                  ✕ Clear custom settings (restore default)
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Meta */}

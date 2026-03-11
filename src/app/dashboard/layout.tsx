@@ -32,6 +32,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       subscriptionStatus: true,
       stripeSubscriptionId: true,
       trialEndsAt: true,
+      communityLabel: true,
+      communityUrl: true,
     },
   });
 
@@ -87,7 +89,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      <Sidebar role={role} householdName={household?.name || "My Household"} flags={flags} />
+      <Sidebar
+        role={role}
+        householdName={household?.name || "My Household"}
+        flags={flags}
+        communityLabel={household?.communityLabel ?? undefined}
+        communityUrl={household?.communityUrl ?? undefined}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         {bannerType && (
           <SubscriptionBanner type={bannerType} daysLeft={trialDaysLeft} />

@@ -176,7 +176,7 @@ export default function HouseBible() {
       </div>`;
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
-<title>${householdName ? esc(householdName) : "Household"} — House Bible</title>
+<title>${householdName ? esc(householdName) : "Household"} — House Ledger</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Georgia, serif; font-size: 11pt; color: #1e293b; background: #fff; }
@@ -225,7 +225,7 @@ body { font-family: Georgia, serif; font-size: 11pt; color: #1e293b; background:
 <div class="cover">
   <div class="cover-icon">🏡</div>
   <div class="cover-title">${householdName ? esc(householdName) : "Household"}</div>
-  <div class="cover-sub">House Bible — Complete Household Reference</div>
+  <div class="cover-sub">House Ledger — Complete Household Reference</div>
   <div class="cover-date">Generated ${today}</div>
   <div class="confidential">⚠️ <strong>Confidential.</strong> This document contains personal information including medical details, passport numbers, and private contacts. Handle with care and do not share outside the household.<br/><br/>🕐 <strong>Data Currency Notice:</strong> This document is only as accurate as the most recent updates made to The House Ledger. Information may have changed since this was printed. Always request a fresh copy when household details are updated.</div>
 </div>
@@ -265,7 +265,7 @@ ${training.length > 0 ? `<div class="section"><div class="section-hdr"><span cla
 
 ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="section-emoji">📖</span><span class="section-title">Standard Operating Procedures</span></div>${sops.map(s => `<div class="card"><div class="card-name">${esc(s.name)}</div>${s.notes ? `<p class="note">${esc(s.notes)}</p>` : ""}</div>`).join("")}</div>` : ""}
 
-<div class="footer">The House Ledger · House Bible · Generated ${today} · Confidential — For Household Use Only</div>
+<div class="footer">The House Ledger · House Ledger · Generated ${today} · Confidential — For Household Use Only</div>
 </div></body></html>`;
   }
 
@@ -306,7 +306,7 @@ ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">📖 House Bible</h1>
+            <h1 className="text-2xl font-bold text-slate-900">📖 House Ledger</h1>
             <p className="text-sm text-slate-500 mt-1 max-w-2xl">
               Your complete household reference guide — automatically assembled from everything you've entered across The House Ledger.
               Print it once and hand it to your house manager on day one.
@@ -341,10 +341,10 @@ ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="
       {/* How it works */}
       <div className="card p-0 overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-sm font-bold text-slate-800">How the House Bible works</h2>
+          <h2 className="text-sm font-bold text-slate-800">How the House Ledger works</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             This document is automatically built from the information you enter in other sections of The House Ledger.
-            The more complete those sections are, the more useful your House Bible will be.
+            The more complete those sections are, the more useful your House Ledger will be.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
@@ -370,7 +370,7 @@ ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">How to use it</p>
             <ol className="space-y-3">
               {[
-                { n: "1", title: "Fill in your sections", body: "Go through each section linked to the left and enter your household's information. The House Bible updates in real-time." },
+                { n: "1", title: "Fill in your sections", body: "Go through each section linked to the left and enter your household's information. The House Ledger updates in real-time." },
                 { n: "2", title: 'Click "Print / Save as PDF"', body: 'A new window opens with a professionally formatted document. In your browser\'s print dialog, choose "Save as PDF."' },
                 { n: "3", title: "Hand it to your manager", body: "Print it out or share the PDF on day one. Your manager will have everything they need to run the household." },
                 { n: "4", title: "Reprint when things change", body: "Come back anytime and regenerate — it always reflects the latest data in the system." },
@@ -392,7 +392,7 @@ ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="
       {loading ? (
         <div className="card p-12 text-center">
           <div className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-400">Assembling your House Bible…</p>
+          <p className="text-sm text-slate-400">Assembling your House Ledger…</p>
         </div>
       ) : (
         <>
@@ -427,7 +427,7 @@ ${sops.length > 0 ? `<div class="section"><div class="section-hdr"><span class="
             <div className="px-5 py-4 bg-brand-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🏡</span>
-                <span className="font-bold">{householdName || "Your Household"} — House Bible</span>
+                <span className="font-bold">{householdName || "Your Household"} — House Ledger</span>
               </div>
               <span className="text-xs text-white/50">Preview · {today}</span>
             </div>

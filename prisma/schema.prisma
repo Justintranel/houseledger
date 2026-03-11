@@ -178,6 +178,10 @@ model Household {
 
   onboardingCompleted Boolean @default(false)
 
+  // Community tab customization — set by super admin per household (coach referral branding)
+  communityLabel String?  // display name, e.g. "Coaching Group" — defaults to "Community" in UI
+  communityUrl   String?  // destination URL — defaults to The House Ledger Skool community
+
   members              HouseholdMember[]
   taskTemplates        TaskTemplate[]
   taskInstances        TaskInstance[]
