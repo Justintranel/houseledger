@@ -154,20 +154,16 @@ export default function RecruitForMePage() {
         </p>
       </div>
 
-      {/* Video placeholder */}
+      {/* Explainer video */}
       <div className="card mb-6 overflow-hidden">
-        <div className="bg-slate-900 aspect-video flex flex-col items-center justify-center gap-3 rounded-t-xl">
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-            <svg className="w-8 h-8 text-white/60" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-          <p className="text-white/40 text-sm">Video coming soon — How Recruitment Done For You works</p>
-        </div>
-        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200">
-          <p className="text-xs text-slate-400">
-            Upload your explainer video here to walk owners through the recruitment process.
-          </p>
+        <div className="aspect-video">
+          <iframe
+            src="https://www.youtube.com/embed/rCQHsBeZglw"
+            title="Recruitment Done For You — How it works"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full"
+          />
         </div>
       </div>
 
