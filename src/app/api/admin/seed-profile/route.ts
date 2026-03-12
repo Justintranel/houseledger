@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { QUESTIONS } from "../../../../../prisma/seed-profile";
+import { QUESTIONS } from "../../../../../prisma/profile-questions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
