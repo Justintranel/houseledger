@@ -22,6 +22,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https://*.amazonaws.com",
       "font-src 'self'",
       "connect-src 'self' https://*.sentry.io https://*.ingest.sentry.io",
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
       "frame-ancestors 'none'",
       "worker-src blob:",
     ].join("; "),
